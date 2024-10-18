@@ -241,7 +241,7 @@ service /auth on httpListener {
         allowCredentials: true
     }
 }
-service /event on httpListener {
+service /events on httpListener {
     final postgresql:Client databaseClient;
 
     public function init() returns error? {
@@ -421,5 +421,124 @@ service /event on httpListener {
             log:printError("Error occurred while adding event", result);
             checkpanic caller->respond({"error": "Failed to add event"});
         }
+    }
+
+    resource function get checkSlug(http:Caller caller, http:Request req) returns error? {
+        // Extract the slug from the query parameters
+        string? slug = req.getQueryParamValue("slug");
+
+        // If no slug is provided, return an error
+        if slug is () {
+            checkpanic caller->respond({"error": "Slug parameter is missing"});
+            return;
+        }
+
+        // Query the database to check if the slug exists
+        sql:ParameterizedQuery query = `SELECT COUNT(1) AS count FROM public.events WHERE slug = ${slug}`;
+
+        // Execute the query and get the result as a single integer
+        int? count = check self.databaseClient->queryRow(query);
+
+        // Check if the query was successful
+        if count is int {
+            // If count is greater than 0, the slug is taken
+            if count > 0 {
+                checkpanic caller->respond({"available": false, "message": "Slug is already taken"});
+            } else {
+                checkpanic caller->respond({"available": true, "message": "Slug is available"});
+            }
+        } else {
+            // Handle the case when the query failed
+            checkpanic caller->respond({"error": "Failed to check slug availability"});
+        }
+    }
+
+    resource function get userowned(http:Caller caller, http:Request req) returns error? {
+
+        string createdBy = "";
+
+        string? authHeader = check req.getHeader("Authorization");
+
+        //use guard close
+        if (authHeader == null) {
+            checkpanic caller->respond({"error": "Authorization header is missing."});
+            return;
+        }
+
+        jwt:Payload|http:Unauthorized payload = authenticateJWT(authHeader);
+
+        if payload is http:Unauthorized {
+          checkpanic caller->respond({"error": "Unauthorized"});
+            return;
+        }
+
+        if payload is jwt:Payload {
+            log:printInfo("JWT validation successful.");
+            string? sub = <string?>payload["sub"];
+            if sub == null {
+                check caller->respond("User not found in JWT payload.");
+                return;
+            }
+            createdBy = sub;
+
+        }
+
+        // Query to fetch the list of events
+        sql:ParameterizedQuery query = `SELECT 
+            id, 
+            name, 
+            date, 
+            time, 
+            location, 
+            tickets_sold, 
+            'default', 
+            available_tickets, 
+            ticket_price, 
+            slug, 
+            meal_provides, 
+            description, 
+            status 
+        FROM public.events_view
+        WHERE created_by = CAST(${createdBy} AS UUID)`;
+
+        // Execute the query and specify the row type
+        stream<Event, sql:Error?> resultStream = self.databaseClient->query(query, Event);
+
+        // Initialize a JSON array to hold the event details
+        json[] eventsList = [];
+
+        // Iterate through the stream and add each event to the list
+        while true {
+            var result = resultStream.next();
+            if result is record {|Event value;|} {
+                Event event = result.value;
+                json eventDetails = {
+                    "id": event.id.toString(),
+                    "name": event.name,
+                    "date": event.date,
+                    "time": event.time,
+                    "location": event.location,
+                    "tickets_sold": event.tickets_sold,
+                    "default": event.default,
+                    "available_tickets": event.available_tickets,
+                    "ticket_price": event.ticket_price,
+                    "slug": event.slug,
+                    "meal_provides": event.meal_provides,
+                    "description": event.description,
+                    "status": event.status
+                };
+                eventsList.push(eventDetails);
+            } else if result is error {
+                log:printError("Error occurred while fetching events", result);
+                checkpanic caller->respond({"error": "Failed to fetch events"});
+                return;
+            } else {
+                break;
+            }
+        }
+
+        // Respond with the list of events
+        checkpanic caller->respond(eventsList);
+
     }
 }
