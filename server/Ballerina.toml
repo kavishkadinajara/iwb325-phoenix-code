@@ -4,10 +4,7 @@ name = "eventure"
 version = "0.1.0"
 distribution = "2201.9.2"
 
-[[dependency]]
-org = "ballerinax"
-name = "postgresql"
-version = "1.12.0"
+
 
 
 
