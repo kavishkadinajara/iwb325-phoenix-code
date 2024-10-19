@@ -91,7 +91,6 @@ service /auth on httpListener {
         }
 
         // Remove any "Bearer " prefix from the token if present
-        string jwtToken = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
 
         jwt:Payload|http:Unauthorized payload = authenticateJWT(authHeader);
 
@@ -372,5 +371,66 @@ service /event on httpListener {
             checkpanic caller->respond({"error": "Failed to add event"});
         }
 
+    }
+}
+
+@http:ServiceConfig {
+    cors: {
+        allowOrigins: ["http://localhost:3000"],
+        allowMethods: ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
+        allowHeaders: ["Authorization", "Content-Type"],
+        allowCredentials: true
+    }
+}
+
+service /bank_account on httpListener {
+    final postgresql:Client databaseClient;
+
+    public function init() returns error? {
+        self.databaseClient = check new (host, username, password, databaseName, port);
+        log:printInfo("Successfully connected to the database.");
+    }
+
+    resource function get .() returns string {
+        return "Welcome to bank account";
+    }
+
+    resource function get all() returns json[] {
+        sql:ParameterizedQuery query = `SELECT user_id, account_name, bank, account_number, branch, to_be_paid FROM bank_accounts`;
+        stream<record {|string id; string account_number; string bank_name; string branch; string account_holder_name; string user_id;|}, error?> resultStream = self.databaseClient->query(query);
+
+        json[] bankAccounts = [];
+        record {|string id; string account_number; string bank_name; string branch; string account_holder_name; string user_id;|}? bankAccount;
+
+        while true {
+            var result = resultStream.next();
+            if result is error {
+                log:printError("Error occurred while fetching bank accounts", result);
+            } else if result is record {|record {|string id; string account_number; string bank_name; string branch; string account_holder_name; string user_id;|} value;|} {
+                log:printInfo("Result: " + result.toString());
+            }
+            if result is error {
+                break;
+            } else if result is () {
+                break;
+            } else {
+                // Extract the inner record from result
+                var innerResult = result.value;
+                if innerResult is record {|string id; string account_number; string bank_name; string branch; string account_holder_name; string user_id;|} {
+                    bankAccount = innerResult;
+                    if bankAccount is record {|string id; string account_number; string bank_name; string branch; string account_holder_name; string user_id;|} {
+                        bankAccounts.push({
+                            "id": bankAccount.id,
+                            "account_number": bankAccount.account_number,
+                            "bank_name": bankAccount.bank_name,
+                            "branch": bankAccount.branch,
+                            "account_holder_name": bankAccount.account_holder_name,
+                            "user_id": bankAccount.user_id
+                        });
+                    }
+                }
+            }
+        }
+        return bankAccounts;
     }
 }
