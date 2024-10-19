@@ -240,7 +240,7 @@ service /auth on httpListener {
         allowCredentials: true
     }
 }
-service /event on httpListener {
+service /events on httpListener {
     final postgresql:Client databaseClient;
 
     public function init() returns error? {
@@ -295,51 +295,101 @@ service /event on httpListener {
     }
 
     resource function post add(http:Caller caller, http:Request req) returns error? {
-        json payload;
-        var payloadResult = req.getJsonPayload();
-        if (payloadResult is json) {
-            payload = payloadResult;
-        } else {
-            checkpanic caller->respond({"error": "Invalid JSON payload"});
+        mime:Entity[] bodyParts = check req.getBodyParts();
+        string createdBy = "";
+
+        string? authHeader = check req.getHeader("Authorization");
+
+        //use guard close
+        if (authHeader == null) {
+            check caller->respond("Authorization header is missing.");
             return;
         }
 
-        string name = (check payload.name).toString();
-        string date = (check payload.date).toString();
-        string time = (check payload.time).toString();
-        string location = (check payload.location).toString();
+        jwt:Payload|http:Unauthorized payload = authenticateJWT(authHeader);
+
+        if payload is http:Unauthorized {
+            check caller->respond("Unauthorized");
+            return;
+        }
+
+        if payload is jwt:Payload {
+            log:printInfo("JWT validation successful.");
+            string? sub = <string?>payload["sub"];
+            if sub == null {
+                check caller->respond("User not found in JWT payload.");
+                return;
+            }
+            createdBy = sub;
+
+        }
+
+        // Initialize variables to hold extracted values
+        string name = "";
+        string date = "";
+        string time = "";
+        string location = "";
         int availableTickets = 0;
-        if payload.available_tickets is int {
-            availableTickets = check payload.available_tickets;
-        } else if payload.available_tickets is string {
-            availableTickets = check int:fromString((check payload.available_tickets).toString());
-        } else {
-            checkpanic caller->respond({"error": "Invalid available tickets format"});
+        float ticketPrice = 0.0;
+        string slug = "";
+        string imageExtension = ".png";
+        string imageUrl = ""; // S3 image URL
+        boolean mealProvides = false;
+        string description = "";
+
+        byte[] fileContent = [];
+
+        foreach var part in bodyParts {
+            mime:ContentDisposition? contentDisposition = part.getContentDisposition();
+            if contentDisposition is mime:ContentDisposition {
+                if contentDisposition.disposition == "attachment" || contentDisposition.name == "file" {
+                    fileContent = check part.getByteArray();
+                } else if contentDisposition.name == "name" {
+                    name = check part.getText();
+                } else if contentDisposition.name == "date" {
+                    date = check part.getText();
+                } else if contentDisposition.name == "time" {
+                    time = check part.getText();
+                } else if contentDisposition.name == "location" {
+                    location = check part.getText();
+                } else if contentDisposition.name == "available_tickets" {
+                    availableTickets = check int:fromString(check part.getText());
+                } else if contentDisposition.name == "ticket_price" {
+                    ticketPrice = check float:fromString(check part.getText());
+                } else if contentDisposition.name == "slug" {
+                    slug = check part.getText();
+                } else if contentDisposition.name == "meal_provides" {
+                    mealProvides = check boolean:fromString(check part.getText());
+                } else if contentDisposition.name == "description" {
+                    description = check part.getText();
+                } else if contentDisposition.name == "image_extension" {
+                    imageExtension = check part.getText();
+                }
+            }
+        }
+
+        // Ensure that all required fields are available
+        if name == "" || fileContent.length() == 0 || date == "" || time == "" || location == "" || slug == "" || createdBy == "" {
+            checkpanic caller->respond({"error": "Missing required fields"});
             return;
         }
-        float ticketPrice;
-        if payload.ticket_price is float {
-            ticketPrice = check payload.ticket_price;
-        } else if payload.ticket_price is string {
-            ticketPrice = check float:fromString(check payload.ticket_price);
-        } else {
-            checkpanic caller->respond({"error": "Invalid ticket price format"});
+
+        string key = "images/" + slug + imageExtension;
+        var uploadResult = amazonS3Client->createObject(AWS_BUCKET, key, fileContent);
+
+        if (uploadResult is error) {
+            log:printError("Error occurred while uploading file to S3", uploadResult);
+            checkpanic caller->respond({"error": "Failed to upload file to S3"});
             return;
         }
-        string slug = (check payload.slug).toString();
-        string image = (check payload.image).toString();
-        boolean mealProvides;
-        if payload.meal_provides is boolean {
-            mealProvides = check payload.meal_provides;
-        } else {
-            checkpanic caller->respond({"error": "Invalid meal_provides format"});
-            return;
-        }
-        string description = (check payload.description).toString();
-        string createdBy = (check payload.created_by).toString();
-       sql:ParameterizedQuery query = `INSERT INTO public.events 
+
+        // Get the S3 URL
+        imageUrl = "https://" + AWS_BUCKET + ".s3." + AWS_REGION + ".amazonaws.com/" + key;
+
+        // Insert event data into the database
+        sql:ParameterizedQuery query = `INSERT INTO public.events 
         (name, date, time, location, available_tickets, ticket_price, slug, image, meal_provides, description, created_by) 
-        VALUES (${name}, ${date}::date, ${time}::time, ${location}, ${availableTickets}, ${ticketPrice}, ${slug}, ${image}, ${mealProvides}, ${description},  CAST(${createdBy} AS UUID))`;
+        VALUES (${name}, ${date}::date, ${time}::time, ${location}, ${availableTickets}, ${ticketPrice}, ${slug}, ${imageUrl}, ${mealProvides}, ${description}, CAST(${createdBy} AS UUID))`;
 
         var result = self.databaseClient->execute(query);
 
@@ -355,7 +405,7 @@ service /event on httpListener {
                 "available_tickets": availableTickets,
                 "ticket_price": ticketPrice,
                 "slug": slug,
-                "image": image,
+                "image": imageUrl,
                 "meal_provides": mealProvides,
                 "description": description,
                 "created_by": createdBy
@@ -370,6 +420,124 @@ service /event on httpListener {
             log:printError("Error occurred while adding event", result);
             checkpanic caller->respond({"error": "Failed to add event"});
         }
+    }
+
+    resource function get checkSlug(http:Caller caller, http:Request req) returns error? {
+        // Extract the slug from the query parameters
+        string? slug = req.getQueryParamValue("slug");
+
+        // If no slug is provided, return an error
+        if slug is () {
+            checkpanic caller->respond({"error": "Slug parameter is missing"});
+            return;
+        }
+
+        // Query the database to check if the slug exists
+        sql:ParameterizedQuery query = `SELECT COUNT(1) AS count FROM public.events WHERE slug = ${slug}`;
+
+        // Execute the query and get the result as a single integer
+        int? count = check self.databaseClient->queryRow(query);
+
+        // Check if the query was successful
+        if count is int {
+            // If count is greater than 0, the slug is taken
+            if count > 0 {
+                checkpanic caller->respond({"available": false, "message": "Slug is already taken"});
+            } else {
+                checkpanic caller->respond({"available": true, "message": "Slug is available"});
+            }
+        } else {
+            // Handle the case when the query failed
+            checkpanic caller->respond({"error": "Failed to check slug availability"});
+        }
+    }
+
+    resource function get userowned(http:Caller caller, http:Request req) returns error? {
+
+        string createdBy = "";
+
+        string? authHeader = check req.getHeader("Authorization");
+
+        //use guard close
+        if (authHeader == null) {
+            checkpanic caller->respond({"error": "Authorization header is missing."});
+            return;
+        }
+
+        jwt:Payload|http:Unauthorized payload = authenticateJWT(authHeader);
+
+        if payload is http:Unauthorized {
+          checkpanic caller->respond({"error": "Unauthorized"});
+            return;
+        }
+
+        if payload is jwt:Payload {
+            log:printInfo("JWT validation successful.");
+            string? sub = <string?>payload["sub"];
+            if sub == null {
+                check caller->respond("User not found in JWT payload.");
+                return;
+            }
+            createdBy = sub;
+
+        }
+
+        // Query to fetch the list of events
+        sql:ParameterizedQuery query = `SELECT 
+            id, 
+            name, 
+            date, 
+            time, 
+            location, 
+            tickets_sold, 
+            'default', 
+            available_tickets, 
+            ticket_price, 
+            slug, 
+            meal_provides, 
+            description, 
+            status 
+        FROM public.events_view
+        WHERE created_by = CAST(${createdBy} AS UUID)`;
+
+        // Execute the query and specify the row type
+        stream<Event, sql:Error?> resultStream = self.databaseClient->query(query, Event);
+
+        // Initialize a JSON array to hold the event details
+        json[] eventsList = [];
+
+        // Iterate through the stream and add each event to the list
+        while true {
+            var result = resultStream.next();
+            if result is record {|Event value;|} {
+                Event event = result.value;
+                json eventDetails = {
+                    "id": event.id.toString(),
+                    "name": event.name,
+                    "date": event.date,
+                    "time": event.time,
+                    "location": event.location,
+                    "tickets_sold": event.tickets_sold,
+                    "default": event.default,
+                    "available_tickets": event.available_tickets,
+                    "ticket_price": event.ticket_price,
+                    "slug": event.slug,
+                    "meal_provides": event.meal_provides,
+                    "description": event.description,
+                    "status": event.status
+                };
+                eventsList.push(eventDetails);
+            } else if result is error {
+                log:printError("Error occurred while fetching events", result);
+                checkpanic caller->respond({"error": "Failed to fetch events"});
+                return;
+            } else {
+                break;
+            }
+        }
+
+        // Respond with the list of events
+        checkpanic caller->respond(eventsList);
 
     }
 }
