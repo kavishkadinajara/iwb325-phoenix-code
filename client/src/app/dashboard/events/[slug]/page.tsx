@@ -1,6 +1,5 @@
 import { auth } from "@/auth";
 import EventDetails from "@/components/EventDetails";
-import ParticipantDetails from "@/components/ParticipantDetails";
 import {
   Breadcrumb,
   BreadcrumbItem,

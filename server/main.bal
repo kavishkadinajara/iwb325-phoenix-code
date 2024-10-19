@@ -7,7 +7,6 @@ import ballerinax/aws.s3;
 import ballerinax/postgresql;
 import ballerinax/postgresql.driver as _;
 
-
 listener http:Listener httpListener = new (8080);
 
 // Supabase DB connection config
@@ -127,7 +126,9 @@ service /auth on httpListener {
         string id = (check payload.id).toString();
         string name = (check payload.name).toString();
         string image = (check payload.image).toString();
-        sql:ParameterizedQuery query = `INSERT INTO users (email, id, name, image) VALUES (${email}, CAST(${id} AS UUID), ${name}, ${image})`;
+        sql:ParameterizedQuery query = `INSERT INTO users (email, id, name, image) 
+                        VALUES (${email}, CAST(${id} AS UUID), ${name}, ${image}) 
+                        ON CONFLICT (id) DO NOTHING`;
 
         var result = self.dbClient->execute(query);
         if (result is sql:ExecutionResult) {
@@ -468,7 +469,7 @@ service /events on httpListener {
         jwt:Payload|http:Unauthorized payload = authenticateJWT(authHeader);
 
         if payload is http:Unauthorized {
-          checkpanic caller->respond({"error": "Unauthorized"});
+            checkpanic caller->respond({"error": "Unauthorized"});
             return;
         }
 
@@ -542,7 +543,7 @@ service /events on httpListener {
 
     }
 
-     resource function get details(http:Caller caller, http:Request req) returns error? {
+    resource function get details(http:Caller caller, http:Request req) returns error? {
 
         string createdBy = "";
 
@@ -557,7 +558,7 @@ service /events on httpListener {
         jwt:Payload|http:Unauthorized payload = authenticateJWT(authHeader);
 
         if payload is http:Unauthorized {
-          checkpanic caller->respond({"error": "Unauthorized"});
+            checkpanic caller->respond({"error": "Unauthorized"});
             return;
         }
 
@@ -572,7 +573,7 @@ service /events on httpListener {
 
         }
 
-         // Extract the slug from the query parameters
+        // Extract the slug from the query parameters
         string? slug = req.getQueryParamValue("slug");
 
         // If no slug is provided, return an error
@@ -643,7 +644,7 @@ service /events on httpListener {
 
     }
 
-     resource function post markDefault(http:Caller caller, http:Request req) returns error? {
+    resource function post markDefault(http:Caller caller, http:Request req) returns error? {
         // Parse the request body
         json payload = check req.getJsonPayload();
 
@@ -659,7 +660,7 @@ service /events on httpListener {
         jwt:Payload|http:Unauthorized jwtpayload = authenticateJWT(authHeader);
 
         if jwtpayload is http:Unauthorized {
-          checkpanic caller->respond({"error": "Unauthorized"});
+            checkpanic caller->respond({"error": "Unauthorized"});
             return;
         }
 
@@ -677,7 +678,6 @@ service /events on httpListener {
 
         // Extract the event_id and user_id from the request payload
         string? eventId = payload.event_id is () ? () : (check payload.event_id).toString();
-        
 
         // Check if both event_id and user_id are provided
         if eventId is () {
@@ -700,6 +700,163 @@ service /events on httpListener {
             checkpanic caller->respond({"error": "Failed to mark event as default"});
         }
     }
+
+    resource function post uploadImage(http:Caller caller, http:Request req) returns error? {
+        // Get all body parts of the multipart request
+        mime:Entity[] bodyParts = check req.getBodyParts();
+
+        // Log the total number of body parts received
+        log:printDebug("Total body parts received: " + bodyParts.length().toString());
+
+        string key = "";
+        byte[] fileContent = [];
+
+        // Loop through each part and log its details
+        foreach var part in bodyParts {
+            // Log details about the current body part
+            log:printDebug("Processing part with content type: " + part.getContentType());
+
+            mime:ContentDisposition? contentDisposition = part.getContentDisposition();
+            if contentDisposition is mime:ContentDisposition {
+                // Log the content disposition for debugging
+                log:printDebug("Content-Disposition Name: " + contentDisposition.name);
+
+                // Check if this part is the 'file' part
+                if contentDisposition.disposition == "attachment" || contentDisposition.name == "file" {
+                    fileContent = check part.getByteArray();
+                    log:printDebug("Extracted file content of size: " + fileContent.length().toString());
+                } else if contentDisposition.name == "slug" {
+                    key = check part.getText();
+
+                }
+            } else {
+                // Log when no content disposition is found
+                log:printWarn("No content disposition found for this part.");
+            }
+        }
+
+        // Check if all required fields are extracted
+        if key == "" || fileContent.length() == 0 {
+            log:printError("Missing required fields or file. key: '" + key + "', fileContentSize: " + fileContent.length().toString());
+            checkpanic caller->respond({"error": "Missing required fields or file"});
+            return;
+        }
+
+        // Log that all fields are present
+        log:printInfo("All fields present. Uploading file to bucket: " + AWS_BUCKET + " with key: " + key);
+
+        string uploadPath = "images/" + key;
+        // Call the S3 client to upload the file
+        var result = amazonS3Client->createObject(AWS_BUCKET, uploadPath, fileContent);
+        if (result is error) {
+            log:printError("Error occurred while uploading object", result);
+            checkpanic caller->respond({"error": "Failed to upload object"});
+        } else {
+            log:printInfo("Object uploaded successfully");
+            checkpanic caller->respond({
+                "message": "Object uploaded successfully",
+                "url": "https://" + AWS_BUCKET + ".s3." + AWS_REGION + ".amazonaws.com/" + uploadPath
+            });
+        }
+    }
+
+    resource function post update(http:Caller caller, http:Request req) returns error? {
+        // Parse the request body
+        json payload = check req.getJsonPayload();
+
+        string userId = "";
+
+        string? authHeader = check req.getHeader("Authorization");
+
+        //use guard close
+        if (authHeader == null) {
+            checkpanic caller->respond({"error": "Authorization header is missing."});
+            return;
+        }
+
+        jwt:Payload|http:Unauthorized jwtpayload = authenticateJWT(authHeader);
+
+        if jwtpayload is http:Unauthorized {
+            checkpanic caller->respond({"error": "Unauthorized"});
+            return;
+        }
+
+        if jwtpayload is jwt:Payload {
+            //log:printInfo("JWT validation successful.");
+            string? sub = <string?>jwtpayload["sub"];
+            if sub != null {
+                userId = sub;
+            } else {
+                check caller->respond("User not found in JWT payload.");
+                return;
+            }
+
+        }
+
+        // Extract the event_id and user_id from the request payload
+        string? eventId = payload.event_id is () ? () : (check payload.event_id).toString();
+        string? name = payload.name is () ? () : (check payload.name).toString();
+        string? date = payload.date is () ? () : (check payload.date).toString();
+        string? time = payload.time is () ? () : (check payload.time).toString();
+        string? location = payload.location is () ? () : (check payload.location).toString();
+        string? description = payload.description is () ? () : (check payload.description).toString();
+
+        int availableTickets = 0;
+        float ticket_price = 0.0;
+
+        availableTickets = check payload.available_tickets;
+        ticket_price = check payload.ticket_price;
+
+        string? slug = payload.slug is () ? () : (check payload.slug).toString();
+        string? imageUrl = payload.image is () ? () : (check payload.image).toString();
+        boolean mealProvides = false;
+
+        mealProvides = check payload.meal_provides;
+
+        // Check if both event_id and user_id are provided
+        if eventId is () {
+            checkpanic caller->respond({"error": "event_id must be provided"});
+            return;
+        }
+
+        // Insert event data into the database
+        sql:ParameterizedQuery query = `UPDATE public.events 
+        SET name = ${name}, date = ${date}::date, time = ${time}::time, location = ${location}, 
+        available_tickets = ${availableTickets}, ticket_price = ${ticket_price}, slug = ${slug}, 
+        image = ${imageUrl}, meal_provides = ${mealProvides}, description = ${description} 
+        WHERE id = CAST(${eventId} AS UUID) AND created_by = CAST(${userId} AS UUID)`;
+
+        var result = self.databaseClient->execute(query);
+
+        if (result is sql:ExecutionResult) {
+            log:printInfo("Event update successfully");
+
+            // Create a JSON object with the added event details
+            json addedEvent = {
+                "name": name,
+                "date": date,
+                "time": time,
+                "location": location,
+                "available_tickets": availableTickets,
+                "ticket_price": ticket_price,
+                "slug": slug,
+                "image": imageUrl,
+                "meal_provides": mealProvides,
+                "description": description,
+                "created_by": userId
+            };
+
+            // Send the added event details back to the caller
+            checkpanic caller->respond({
+                "message": "Event updated successfully",
+                "event": addedEvent
+            });
+        } else if (result is error) {
+            log:printError("Error occurred while adding event", result);
+            checkpanic caller->respond({"error": "Failed to add event"});
+        }
+    }
+
 }
 
 @http:ServiceConfig {
@@ -710,7 +867,6 @@ service /events on httpListener {
         allowCredentials: true
     }
 }
-
 service /bank_account on httpListener {
     final postgresql:Client databaseClient;
 
@@ -889,7 +1045,6 @@ service /bank_account on httpListener {
                 }
             }
 
-
             // Return the bank accounts related to the user_id
             if bankAccounts.length() > 0 {
                 checkpanic caller->respond({
@@ -907,43 +1062,42 @@ service /bank_account on httpListener {
     }
 
     resource function delete deleteBankAccount(http:Caller caller, http:Request req) returns error? {
-    json payload;
-    var payloadResult = req.getJsonPayload();
-    if (payloadResult is json) {
-        payload = payloadResult;
-    } else {
-        checkpanic caller->respond({"error": "Invalid JSON payload"});
-        return;
-    }
+        json payload;
+        var payloadResult = req.getJsonPayload();
+        if (payloadResult is json) {
+            payload = payloadResult;
+        } else {
+            checkpanic caller->respond({"error": "Invalid JSON payload"});
+            return;
+        }
 
-    // Extract user_id and account_number from the payload
-    string user_id = (check payload.user_id).toString();
-    string account_number = (check payload.account_number).toString();
+        // Extract user_id and account_number from the payload
+        string user_id = (check payload.user_id).toString();
+        string account_number = (check payload.account_number).toString();
 
-    // Ensure user_id and account_number are provided
-    if user_id == "" || account_number == "" {
-        checkpanic caller->respond({"error": "Missing 'user_id' or 'account_number' field"});
-        return;
-    }
+        // Ensure user_id and account_number are provided
+        if user_id == "" || account_number == "" {
+            checkpanic caller->respond({"error": "Missing 'user_id' or 'account_number' field"});
+            return;
+        }
 
-    // Delete the bank account from the database
-    sql:ParameterizedQuery query = `DELETE FROM bank_accounts 
+        // Delete the bank account from the database
+        sql:ParameterizedQuery query = `DELETE FROM bank_accounts 
                                      WHERE user_id = CAST(${user_id} AS UUID) 
                                      AND account_number = ${account_number}`;
 
-    var result = self.databaseClient->execute(query);
+        var result = self.databaseClient->execute(query);
 
-    if result is sql:ExecutionResult {
-        log:printInfo("Bank account deleted successfully");
+        if result is sql:ExecutionResult {
+            log:printInfo("Bank account deleted successfully");
 
-        checkpanic caller->respond({
-            "message": "Bank account deleted successfully"
-        });
-    } else if result is error {
-        log:printError("Error occurred while deleting bank account", result);
-        checkpanic caller->respond({"error": "Failed to delete bank account"});
+            checkpanic caller->respond({
+                "message": "Bank account deleted successfully"
+            });
+        } else if result is error {
+            log:printError("Error occurred while deleting bank account", result);
+            checkpanic caller->respond({"error": "Failed to delete bank account"});
+        }
     }
-}
-
 
 }
