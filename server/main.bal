@@ -565,16 +565,16 @@ service /bank_account on httpListener {
 
     resource function get all() returns json[] {
         sql:ParameterizedQuery query = `SELECT user_id, account_name, bank, account_number, branch, to_be_paid FROM bank_accounts`;
-        stream<record {|string id; string account_number; string bank_name; string branch; string account_holder_name; string user_id;|}, error?> resultStream = self.databaseClient->query(query);
+        stream<record {|string user_id; string account_name; string bank; string account_number; string branch; float to_be_paid;|}, error?> resultStream = self.databaseClient->query(query);
 
         json[] bankAccounts = [];
-        record {|string id; string account_number; string bank_name; string branch; string account_holder_name; string user_id;|}? bankAccount;
+        record {|string user_id; string account_name; string bank; string account_number; string branch; float to_be_paid;|}? bankAccount;
 
         while true {
             var result = resultStream.next();
             if result is error {
                 log:printError("Error occurred while fetching bank accounts", result);
-            } else if result is record {|record {|string id; string account_number; string bank_name; string branch; string account_holder_name; string user_id;|} value;|} {
+            } else if result is record {|record {|string user_id; string account_name; string bank; string account_number; string branch; float to_be_paid;|} value;|} {
                 log:printInfo("Result: " + result.toString());
             }
             if result is error {
@@ -584,15 +584,15 @@ service /bank_account on httpListener {
             } else {
                 // Extract the inner record from result
                 var innerResult = result.value;
-                if innerResult is record {|string id; string account_number; string bank_name; string branch; string account_holder_name; string user_id;|} {
+                if innerResult is record {|string user_id; string account_name; string bank; string account_number; string branch; float to_be_paid;|} {
                     bankAccount = innerResult;
-                    if bankAccount is record {|string id; string account_number; string bank_name; string branch; string account_holder_name; string user_id;|} {
+                    if bankAccount is record {|string user_id; string account_name; string bank; string account_number; string branch; float to_be_paid;|} {
                         bankAccounts.push({
-                            "id": bankAccount.id,
+                            "id": bankAccount.user_id,
                             "account_number": bankAccount.account_number,
-                            "bank_name": bankAccount.bank_name,
+                            "bank_name": bankAccount.bank,
                             "branch": bankAccount.branch,
-                            "account_holder_name": bankAccount.account_holder_name,
+                            "account_holder_name": bankAccount.account_name,
                             "user_id": bankAccount.user_id
                         });
                     }
@@ -601,4 +601,84 @@ service /bank_account on httpListener {
         }
         return bankAccounts;
     }
+
+resource function post add(http:Caller caller, http:Request req) returns error? {
+    json payload;
+    var payloadResult = req.getJsonPayload();
+    if (payloadResult is json) {
+        payload = payloadResult;
+    } else {
+        checkpanic caller->respond({"error": "Invalid JSON payload"});
+        return;
+    }
+
+    string user_id = (check payload.user_id).toString();
+    string account_name = (check payload.account_name).toString();
+    string bank = (check payload.bank).toString();
+    string account_number = (check payload.account_number).toString();
+    string branch = (check payload.branch).toString();
+    float to_be_paid = 0.00;
+
+    // Handle 'to_be_paid' field
+    if payload.to_be_paid is float {
+        to_be_paid = check payload.to_be_paid;
+    } else if payload.to_be_paid is int {
+        var parsedFloat = float:fromString((check payload.to_be_paid).toString());
+        if parsedFloat is float {
+            to_be_paid = parsedFloat;
+        } else {
+            checkpanic caller->respond({"error": "Invalid 'to_be_paid' value: must be a number"});
+            return;
+        }
+    } else if payload.to_be_paid is string {
+        var parsedFloat = float:fromString((check payload.to_be_paid).toString());
+        if parsedFloat is float {
+            to_be_paid = parsedFloat;
+        } else {
+            checkpanic caller->respond({"error": "Invalid 'to_be_paid' value: must be a number"});
+            return;
+        }
+    } else {
+        checkpanic caller->respond({"error": "Invalid 'to_be_paid' value: unsupported type"});
+        return;
+    }
+
+    // Ensure all required fields are provided
+    if user_id == "" || account_name == "" || bank == "" || account_number == "" || branch == "" {
+        checkpanic caller->respond({"error": "Missing required fields"});
+        return;
+    }
+
+    // Insert the new bank account into the database
+    sql:ParameterizedQuery query = `INSERT INTO bank_accounts (user_id, account_name, bank, account_number, branch, to_be_paid)
+                                    VALUES (CAST(${user_id} AS UUID), ${account_name}, ${bank}, ${account_number}, ${branch}, ${to_be_paid})`;
+
+    var result = self.databaseClient->execute(query);
+
+    if result is sql:ExecutionResult {
+        log:printInfo("Bank account added successfully");
+
+        // Create a JSON object with the added bank account details
+        json addedBankAccount = {
+            "user_id": user_id,
+            "account_name": account_name,
+            "bank": bank,
+            "account_number": account_number,
+            "branch": branch,
+            "to_be_paid": to_be_paid
+        };
+
+        // Send the added bank account details back to the caller
+        checkpanic caller->respond({
+            "message": "Bank account added successfully",
+            "bank_account": addedBankAccount
+        });
+    } else if result is error {
+        log:printError("Error occurred while adding bank account", result);
+        checkpanic caller->respond({"error": "Failed to add bank account"});
+    }
 }
+
+
+}
+
