@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /* eslint-disable @typescript-eslint/no-unused-vars */
+=======
+/* eslint-disable @typescript-eslint/no-explicit-any */
+>>>>>>> 607c20575f8732ed9b9920bc36bb93156efe865f
 "use client";
 
 import { Badge } from "@/components/ui/badge";
@@ -26,11 +30,19 @@ import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import clearCachesByServerAction from "@/lib/revalidate";
 import { Event } from "@/types";
+<<<<<<< HEAD
 // import { createClient } from "@/utils/supabase/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useCallback, useEffect, useState } from "react";
+=======
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+>>>>>>> 607c20575f8732ed9b9920bc36bb93156efe865f
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -62,6 +74,10 @@ export default function EditEventPage({
 }) {
   const { toast } = useToast();
   const router = useRouter();
+<<<<<<< HEAD
+=======
+  const { data: session } = useSession();
+>>>>>>> 607c20575f8732ed9b9920bc36bb93156efe865f
 
   const [eventData, setEventData] = useState<Event | null>(null);
 
@@ -81,6 +97,7 @@ export default function EditEventPage({
     },
   });
 
+<<<<<<< HEAD
 //   useEffect(() => {
 //     const fetchData = async () => {
 //       const supabase = createClient();
@@ -124,6 +141,48 @@ export default function EditEventPage({
 
   const [slug, setSlug] = useState("");
   const [isSlugAvailable, setIsSlugAvailable] = useState(false);
+=======
+  useEffect(() => {
+    const fetchData = async () => {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BAL_URL}/events/details?slug=${params.slug}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+        }
+      );
+      const eventData: Event[] = await response.json();
+
+      const event = eventData[0];
+
+      console.log(eventData);
+      setEventData(event);
+
+      form.reset({
+        name: event?.name || "", // Field for event name
+        date: event?.date || "", // Field for event date
+        time: event?.time || "", // Field for event time
+        location: event?.location || "", // Field for event location
+        availableTickets: event?.available_tickets || 0, // Field for available tickets
+        slug: event?.slug || "", // Field for event slug
+        mealProvided: event?.meal_provides || false, // Field for meal provided (boolean)
+        ticketPrice: event?.ticket_price || 0, // Field for ticket price
+        description: event?.description || "", // Field for event description
+        image: undefined, // Field for event image (can be URL or file)
+      });
+
+      setSlug(event?.slug || "");
+    };
+
+    fetchData();
+  }, [form, params.slug]);
+
+  const [slug, setSlug] = useState("");
+  const [isSlugAvailable, setIsSlugAvailable] = useState(true);
+>>>>>>> 607c20575f8732ed9b9920bc36bb93156efe865f
   const [isSlugChecking, setIsSlugChecking] = useState(false);
   const [eventImage, setEventImage] = useState<File | null>(null);
   const [fileInputValue, setFileInputValue] = useState<string>("");
@@ -132,6 +191,7 @@ export default function EditEventPage({
 
   const debouncedSlug = useDebounce({ value: slug, delay: 2000 });
 
+<<<<<<< HEAD
 //   const checkSlugAvailability = useCallback(
 //     async (slug: string) => {
 //       setIsSlugChecking(true);
@@ -288,6 +348,172 @@ async function onsubmit() {
 //     clearCachesByServerAction(`/dashboard/events/${values.slug}`);
 //     router.push("/dashboard/events");
 //   }
+=======
+  const checkSlugAvailability = useCallback(async (slug: string) => {
+    setIsSlugChecking(true);
+    if (slug) {
+      // const isAvailable: boolean = !slug.includes("taken");
+      // setIsSlugAvailable(isAvailable);
+      if (slug === eventData?.slug) {
+        console.log("Slug is the same as the current slug");
+        setIsSlugAvailable(true);
+        setIsSlugChecking(false);
+        return;
+      }
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BAL_URL}/events/checkSlug?slug=${slug}`
+        );
+        const result = await response.json();
+
+        if (response.ok) {
+          setIsSlugAvailable(result.available);
+        } else {
+          console.error("Error checking slug availability", result.error);
+          return false;
+        }
+      } catch (err) {
+        console.error("Unexpected error:", err);
+        setIsSlugAvailable(false);
+      }
+    }
+    setIsSlugChecking(false);
+  }, [eventData?.slug]);
+
+  useEffect(() => {
+    checkSlugAvailability(debouncedSlug);
+  }, [debouncedSlug, checkSlugAvailability, eventData?.slug]);
+
+  function generateSlug(name: string) {
+    //add the current year too with a hypen
+    const slug =
+      name
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "") +
+      "-" +
+      new Date().getFullYear();
+    setSlug(slug);
+    form.setValue("slug", slug);
+  }
+
+  const handleSlugChange = (e: any) => {
+    
+    const newSlug = e.target.value
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
+    setSlug(newSlug);
+    setIsSlugChecking(true);
+  };
+
+  async function onSubmit(values: z.infer<typeof EventDetailsSchema>) {
+    // ✅ This will be type-safe and validated.
+    console.log(values);
+    setIsUploading(true);
+
+    let imageURL = eventData?.image;
+
+    if (values.image) {
+      // Extract the file extension from the file name
+      const fileExtension = values.image.name.split(".").pop();
+      const formData = new FormData();
+      formData.append("file", values.image);
+      formData.append("slug", values.slug + "." + fileExtension);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BAL_URL}/events/uploadImage`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+          body: formData,
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        imageURL = result.url;
+      } else {
+        console.error("Error uploading image:", result.error);
+        // Show error toast
+        toast({
+          title: "Error",
+          description: "Failed to upload image",
+          type: "foreground",
+        });
+      }
+
+      //Adding the Event
+
+      const newEvent = {
+        name: values.name,
+        date: values.date,
+        time: values.time,
+        location: values.location,
+        available_tickets: values.availableTickets,
+        ticket_price: values.ticketPrice,
+        slug: values.slug,
+        image: imageURL,
+        meal_provides: values.mealProvided,
+        description: values.description,
+        default: false,
+      };
+
+      console.log(newEvent);
+    }
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BAL_URL}/events/update`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.accessToken}`,
+        },
+        body: JSON.stringify({
+          event_id: eventData?.id,
+          name: values.name,
+          date: values.date,
+          time: values.time,
+          location: values.location,
+          available_tickets: values.availableTickets,
+          ticket_price: values.ticketPrice,
+          slug: values.slug,
+          image: imageURL,
+          meal_provides: values.mealProvided,
+          description: values.description,
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error("Error updating event:", result.error);
+      // Show error toast
+      toast({
+        title: "Error",
+        description: "Failed to update event",
+        type: "foreground",
+      });
+    }
+
+    setIsUploading(false);
+
+    // Show success toast
+    toast({
+      title: "Event Updated",
+      description: "Event has been updated successfully",
+      type: "foreground",
+    });
+
+    clearCachesByServerAction(`/dashboard/events/${values.slug}`);
+    router.push("/dashboard/events");
+  }
+>>>>>>> 607c20575f8732ed9b9920bc36bb93156efe865f
 
   const getTodayDate = () => {
     const today = new Date();
@@ -297,6 +523,7 @@ async function onsubmit() {
     return `${year}-${month}-${day}`;
   };
 
+<<<<<<< HEAD
     function generateSlug(value: string) {
         throw new Error("Function not implemented.");
     }
@@ -305,6 +532,8 @@ async function onsubmit() {
         throw new Error("Function not implemented.");
     }
 
+=======
+>>>>>>> 607c20575f8732ed9b9920bc36bb93156efe865f
   return (
     <div>
       <Breadcrumb className="hidden md:flex ml-6 -mt-12 z-40 absolute mb-4">
@@ -348,7 +577,11 @@ async function onsubmit() {
 
         <Form {...form}>
           <form
+<<<<<<< HEAD
             onSubmit={form.handleSubmit(onsubmit)}
+=======
+            onSubmit={form.handleSubmit(onSubmit)}
+>>>>>>> 607c20575f8732ed9b9920bc36bb93156efe865f
             className="grid grid-cols-2 gap-6"
           >
             <div className="space-y-4">
@@ -634,4 +867,8 @@ async function onsubmit() {
       </main>
     </div>
   );
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 607c20575f8732ed9b9920bc36bb93156efe865f
