@@ -13,10 +13,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, account, profile, trigger }) {
-      console.log("jwt->token: ", token);
-      console.log("jwt->account: ", account);
-      console.log("jwt->profile: ", profile);
-      console.log("jwt->trigger: ", trigger);
+      // console.log("jwt->token: ", token);
+      // console.log("jwt->account: ", account);
+      // console.log("jwt->profile: ", profile);
+      // console.log("jwt->trigger: ", trigger);
       if (account?.providerAccountId) {
         token.id = account.providerAccountId;
       }
@@ -47,7 +47,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       const signingSecret = process.env.JWT_SECRET;
-      console.log("session->token:", token);
+      // console.log("session->token:", token);
       if (token?.id) {
         session.user.id = token.id as string;
       }
@@ -59,7 +59,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const payload = {
           iss: "eventure",
           aud: "authenticated",
-
+          sub: session.user.id,
           email: session.user.email,
           role: "authenticated",
         };

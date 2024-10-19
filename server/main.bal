@@ -314,7 +314,7 @@ service /events on httpListener {
         }
 
         if payload is jwt:Payload {
-            log:printInfo("JWT validation successful.");
+            //log:printInfo("JWT validation successful.");
             string? sub = <string?>payload["sub"];
             if sub == null {
                 check caller->respond("User not found in JWT payload.");
@@ -490,7 +490,7 @@ service /events on httpListener {
             time, 
             location, 
             tickets_sold, 
-            'default', 
+            "default", 
             available_tickets, 
             ticket_price, 
             slug, 
@@ -539,6 +539,165 @@ service /events on httpListener {
         // Respond with the list of events
         checkpanic caller->respond(eventsList);
 
+    }
+
+     resource function get details(http:Caller caller, http:Request req) returns error? {
+
+        string createdBy = "";
+
+        string? authHeader = check req.getHeader("Authorization");
+
+        //use guard close
+        if (authHeader == null) {
+            checkpanic caller->respond({"error": "Authorization header is missing."});
+            return;
+        }
+
+        jwt:Payload|http:Unauthorized payload = authenticateJWT(authHeader);
+
+        if payload is http:Unauthorized {
+          checkpanic caller->respond({"error": "Unauthorized"});
+            return;
+        }
+
+        if payload is jwt:Payload {
+            //log:printInfo("JWT validation successful.");
+            string? sub = <string?>payload["sub"];
+            if sub == null {
+                check caller->respond("User not found in JWT payload.");
+                return;
+            }
+            createdBy = sub;
+
+        }
+
+         // Extract the slug from the query parameters
+        string? slug = req.getQueryParamValue("slug");
+
+        // If no slug is provided, return an error
+        if slug is () {
+            checkpanic caller->respond({"error": "Slug parameter is missing"});
+            return;
+        }
+
+        // Query to fetch the list of events
+        sql:ParameterizedQuery query = `SELECT 
+            id,
+            image,
+            name, 
+            date, 
+            time, 
+            location, 
+            tickets_sold, 
+            'default', 
+            available_tickets, 
+            ticket_price, 
+            slug, 
+            meal_provides, 
+            description, 
+            status 
+        FROM public.events_view
+        WHERE created_by = CAST(${createdBy} AS UUID)
+        AND slug = ${slug}`;
+
+        // Execute the query and specify the row type
+        stream<Event, sql:Error?> resultStream = self.databaseClient->query(query, Event);
+
+        // Initialize a JSON array to hold the event details
+        json[] eventsList = [];
+
+        // Iterate through the stream and add each event to the list
+        while true {
+            var result = resultStream.next();
+            if result is record {|Event value;|} {
+                Event event = result.value;
+                json eventDetails = {
+                    "id": event.id.toString(),
+                    "name": event.name,
+                    "image": event.image,
+                    "date": event.date,
+                    "time": event.time,
+                    "location": event.location,
+                    "tickets_sold": event.tickets_sold,
+                    "default": event.default,
+                    "available_tickets": event.available_tickets,
+                    "ticket_price": event.ticket_price,
+                    "slug": event.slug,
+                    "meal_provides": event.meal_provides,
+                    "description": event.description,
+                    "status": event.status
+                };
+                eventsList.push(eventDetails);
+            } else if result is error {
+                log:printError("Error occurred while fetching events", result);
+                checkpanic caller->respond({"error": "Failed to fetch events"});
+                return;
+            } else {
+                break;
+            }
+        }
+
+        // Respond with the list of events
+        checkpanic caller->respond(eventsList);
+
+    }
+
+     resource function post markDefault(http:Caller caller, http:Request req) returns error? {
+        // Parse the request body
+        json payload = check req.getJsonPayload();
+
+        string userId = "";
+        string? authHeader = check req.getHeader("Authorization");
+
+        //use guard close
+        if (authHeader == null) {
+            checkpanic caller->respond({"error": "Authorization header is missing."});
+            return;
+        }
+
+        jwt:Payload|http:Unauthorized jwtpayload = authenticateJWT(authHeader);
+
+        if jwtpayload is http:Unauthorized {
+          checkpanic caller->respond({"error": "Unauthorized"});
+            return;
+        }
+
+        if jwtpayload is jwt:Payload {
+            //log:printInfo("JWT validation successful.");
+            string? sub = <string?>jwtpayload["sub"];
+            if sub != null {
+                userId = sub;
+            } else {
+                check caller->respond("User not found in JWT payload.");
+                return;
+            }
+
+        }
+
+        // Extract the event_id and user_id from the request payload
+        string? eventId = payload.event_id is () ? () : (check payload.event_id).toString();
+        
+
+        // Check if both event_id and user_id are provided
+        if eventId is () {
+            checkpanic caller->respond({"error": "event_id must be provided"});
+            return;
+        }
+
+        // Define the query to call the PostgreSQL function
+        sql:ParameterizedQuery query = `SELECT public.mark_event_as_default(CAST(${eventId} AS UUID), CAST(${userId} AS UUID))`;
+
+        // Execute the query
+        var result = self.databaseClient->execute(query);
+
+        // Check if the query execution was successful
+        if result is sql:ExecutionResult {
+            log:printInfo("Event marked as default successfully");
+            checkpanic caller->respond({"message": "Event marked as default successfully"});
+        } else if result is error {
+            log:printError("Error occurred while marking event as default", result);
+            checkpanic caller->respond({"error": "Failed to mark event as default"});
+        }
     }
 }
 
