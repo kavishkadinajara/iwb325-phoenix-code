@@ -738,7 +738,7 @@ service /bank_account on httpListener {
                 log:printInfo("Result: " + result.toString());
             }
             if result is error {
-                break;
+                continue;
             } else if result is () {
                 break;
             } else {
@@ -867,29 +867,28 @@ service /bank_account on httpListener {
                 var result = resultStream.next();
                 if result is error {
                     log:printError("Error occurred while fetching bank accounts", result);
-                    checkpanic caller->respond({"error": "Failed to fetch bank accounts"});
-                    break;
+                    // Instead of using checkpanic, just respond with an error and return
+                    _ = check caller->respond({"error": "Failed to fetch bank accounts"});
+                    return; // Exit the function
                 } else if result is () {
                     // End of stream
                     break;
                 } else {
-                    var innerResult = result.value;
-                    if innerResult is record {|string user_id; string account_name; string bank; string account_number; string branch; float to_be_paid;|} {
-                        bankAccount = innerResult;
-                        if bankAccount is record {|string user_id; string account_name; string bank; string account_number; string branch; float to_be_paid;|} {
-                            // Push the result into the bankAccounts array
-                            bankAccounts.push({
-                                "user_id": bankAccount.user_id,
-                                "account_name": bankAccount.account_name,
-                                "bank": bankAccount.bank,
-                                "account_number": bankAccount.account_number,
-                                "branch": bankAccount.branch,
-                                "to_be_paid": bankAccount.to_be_paid
-                            });
-                        }
+                    bankAccount = result.value;
+                    if bankAccount is record {|string user_id; string account_name; string bank; string account_number; string branch; float to_be_paid;|} {
+                        // Push the result into the bankAccounts array
+                        bankAccounts.push({
+                            "user_id": bankAccount.user_id,
+                            "account_name": bankAccount.account_name,
+                            "bank": bankAccount.bank,
+                            "account_number": bankAccount.account_number,
+                            "branch": bankAccount.branch,
+                            "to_be_paid": bankAccount.to_be_paid
+                        });
                     }
                 }
             }
+
 
             // Return the bank accounts related to the user_id
             if bankAccounts.length() > 0 {
@@ -906,5 +905,45 @@ service /bank_account on httpListener {
             checkpanic caller->respond({"error": "Missing 'user_id' query parameter"});
         }
     }
+
+    resource function delete deleteBankAccount(http:Caller caller, http:Request req) returns error? {
+    json payload;
+    var payloadResult = req.getJsonPayload();
+    if (payloadResult is json) {
+        payload = payloadResult;
+    } else {
+        checkpanic caller->respond({"error": "Invalid JSON payload"});
+        return;
+    }
+
+    // Extract user_id and account_number from the payload
+    string user_id = (check payload.user_id).toString();
+    string account_number = (check payload.account_number).toString();
+
+    // Ensure user_id and account_number are provided
+    if user_id == "" || account_number == "" {
+        checkpanic caller->respond({"error": "Missing 'user_id' or 'account_number' field"});
+        return;
+    }
+
+    // Delete the bank account from the database
+    sql:ParameterizedQuery query = `DELETE FROM bank_accounts 
+                                     WHERE user_id = CAST(${user_id} AS UUID) 
+                                     AND account_number = ${account_number}`;
+
+    var result = self.databaseClient->execute(query);
+
+    if result is sql:ExecutionResult {
+        log:printInfo("Bank account deleted successfully");
+
+        checkpanic caller->respond({
+            "message": "Bank account deleted successfully"
+        });
+    } else if result is error {
+        log:printError("Error occurred while deleting bank account", result);
+        checkpanic caller->respond({"error": "Failed to delete bank account"});
+    }
+}
+
 
 }
