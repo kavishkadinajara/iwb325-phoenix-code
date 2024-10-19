@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/provider";
 import { Toaster } from "@/components/ui/toaster";
 import { SessionProvider } from "next-auth/react";
+import "@/styles/scrollbar.css";
 
 export const metadata: Metadata = {
   title: "Eventure - Where Events Meet Innovation",

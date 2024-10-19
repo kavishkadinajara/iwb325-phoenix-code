@@ -5,6 +5,7 @@ import { Spotlight } from "./ui/Spotlight";
 import { TextGenerateEffect } from "./ui/TextGenerateEffect";
 import AnimatedShinyText from "./ui/animated-shiny-text";
 
+
 const Hero = () => {
   return (
     <div className="pb-20 pt-36">
@@ -50,9 +51,9 @@ const Hero = () => {
             The most convenient way to buy tickets for your favorite events.
           </p>
 
-          <a href="/register">
+          <a href="/login">
             <MagicButton
-              title="Register Now"
+              title="Get Started Now"
               icon={<FaLocationArrow />}
               position="right"
             />
