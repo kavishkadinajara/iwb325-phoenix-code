@@ -857,6 +857,77 @@ service /events on httpListener {
         }
     }
 
+    resource function post purchase(http:Caller caller, http:Request req) returns error? {
+        // Parse the JSON payload
+        json payload = check req.getJsonPayload();
+
+        // string? eventId = payload.event_id is () ? () : (check payload.event_id).toString();
+
+        // Extract relevant fields from the payload
+        string? ticketId = payload.ticket_id is () ? () : (check payload.ticket_id).toString();
+        string? name = payload.name is () ? () : (check payload.name).toString();
+        string? email = payload.email is () ? () : (check payload.email).toString();
+        string? mobile = payload.mobile is () ? () : (check payload.mobile).toString();
+        int? mealType = payload.meal_type is () ? () : (check int:fromString((check payload.meal_type).toString()));
+        int? paymentMethod = payload.payment_method is () ? () : (check int:fromString((check payload.payment_method).toString()));
+        string? eventName = payload.event_name is () ? () : (check payload.event_name).toString();
+        string? eventImage = payload.event_image is () ? () : (check payload.event_image).toString();
+        int? status = payload.status is () ? () : (check int:fromString((check payload.status).toString()));
+        string? eventId = payload.event_id is () ? () : (check payload.event_id).toString();
+
+        // Validate required fields
+        if ticketId is () || name is () || email is () || mobile is () ||
+            mealType is () || paymentMethod is () || eventName is () || eventImage is () || eventId is () {
+            checkpanic caller->respond({"error": "Missing required fields"});
+            return;
+        }
+
+        // Define the query to call the PostgreSQL function
+        sql:ParameterizedQuery query;
+
+        if status is () {
+            // If status is null, call the function without status
+            query = `SELECT public.process_ticket_purchase(
+            CAST(${ticketId} AS UUID),
+            ${name},
+            ${email},
+            ${mobile},
+            CAST(${mealType} AS SMALLINT),
+            CAST(${paymentMethod} AS SMALLINT),
+            ${eventName},
+            ${eventImage},
+            NULL,
+            CAST(${eventId} AS UUID)
+        )`;
+        } else {
+            // If status is provided, call the function with status
+            query = `SELECT public.process_ticket_purchase(
+            CAST(${ticketId} AS UUID),
+            ${name},
+            ${email},
+            ${mobile},
+            CAST(${mealType} AS SMALLINT),
+            CAST(${paymentMethod} AS SMALLINT),
+            ${eventName},
+            ${eventImage},
+            CAST(${status} AS SMALLINT),
+            CAST(${eventId} AS UUID)
+        )`;
+        }
+
+        // Execute the query
+        var result = self.databaseClient->execute(query);
+
+        // Check the result of the query execution
+        if result is sql:ExecutionResult {
+            log:printInfo("Ticket purchase processed successfully");
+            checkpanic caller->respond({"message": "Ticket purchase processed successfully"});
+        } else if result is error {
+            log:printError("Error occurred while processing ticket purchase", result);
+            checkpanic caller->respond({"error": "Failed to process ticket purchase"});
+        }
+    }
+
 }
 
 @http:ServiceConfig {
