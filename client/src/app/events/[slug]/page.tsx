@@ -6,15 +6,13 @@ import { notFound } from "next/navigation";
 import { FaBan, FaLocationArrow } from "react-icons/fa6";
 
 const EventLandingPage = async ({ params }: { params: { slug: string } }) => {
-  // Fetch event data based on the slug
-  const eventData = await fetchEventData(params.slug);
-
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/public_view?slug=${params.slug}`
+  );
+  const eventData = await res.json();
   if (!eventData) {
     return notFound();
   }
-
-
-
 
   return (
     <div className="flex flex-col md:flex-row">
@@ -87,24 +85,10 @@ const EventLandingPage = async ({ params }: { params: { slug: string } }) => {
         <img
           src={eventData.image}
           alt="hero"
+          className="max-w-screen-sm z-10 fade-edges mx-auto"
         />
       </div>
     </div>
   );
 };
-
-// Mock function to fetch event data
-async function fetchEventData(slug: string) {
-  // Replace this with actual data fetching logic
-  return {
-    name: "Sample Event",
-    description: "This is a sample event description.",
-    location: "Sample Location",
-    date: "2024-08-26",
-    time: "09:00:00",
-    available_tickets: 100,
-    image: "/path/to/image.jpg",
-  };
-}
-
 export default EventLandingPage;

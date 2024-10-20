@@ -1,7 +1,5 @@
 "use client";
 
-import { changeEventStatus } from "@/actions/Admin";
-import { markEventAsDefault } from "@/actions/events";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -152,16 +150,8 @@ export const adminEventColumns: ColumnDef<Event>[] = [
             <Link href={`/admin/events/${event.slug}`}>
               <DropdownMenuItem>View Details</DropdownMenuItem>
             </Link>
-            <DropdownMenuItem
-                onClick={async () => await changeEventStatus(event.id, 1)}
-              >
-                Mark as Approved
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={async () => await await changeEventStatus(event.id, 2)}
-              >
-                Mark as Rejected
-              </DropdownMenuItem>
+            <DropdownMenuItem>Mark as Approved</DropdownMenuItem>
+            <DropdownMenuItem>Mark as Rejected</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       );

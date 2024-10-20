@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { DownloadIcon, FileIcon, PlayIcon } from "@radix-ui/react-icons";
-import { AppleIcon, ComputerIcon, MenuIcon, MountainIcon } from "lucide-react";
+import { AppleIcon, ComputerIcon, MenuIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 

@@ -1,19 +1,8 @@
 "use client";
 
-import { changeEventStatus } from "@/actions/Admin";
-import { markEventAsDefault } from "@/actions/events";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Event, PaymentColumns } from "@/types";
+import { PaymentColumns } from "@/types";
 import { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 
 /*

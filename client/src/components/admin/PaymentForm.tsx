@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { submitPayment } from "@/actions/Admin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -188,3 +188,7 @@ const PaymentForm = ({ data }: PaymentFormProps) => {
   );
 };
 export default PaymentForm;
+
+function submitPayment(state: { message: string; status: number; }): { message: string; status: number; } | Promise<{ message: string; status: number; }> {
+  throw new Error("Function not implemented.");
+}
