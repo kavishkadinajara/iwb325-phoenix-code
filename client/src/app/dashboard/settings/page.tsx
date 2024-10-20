@@ -1,4 +1,3 @@
-import APIManage from "@/components/APIManage";
 import DeleteAccount from "@/components/DeleteAccount";
 import PayoutHistory from "@/components/PayoutHistory";
 import {
@@ -12,7 +11,6 @@ import { Separator } from "@/components/ui/separator";
 import UpdateBankAccount from "@/components/UpdateBankAccount";
 import UpdateGeneralInfo from "@/components/UpdateGeneralInfo";
 import UpdateSecurityInfo from "@/components/UpdateSecurityInfo";
-// import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 
 export default async function SettingsPage() {
@@ -57,7 +55,6 @@ export default async function SettingsPage() {
             data={{ ...data, email: sessionData.user.email }}
           />
           <UpdateSecurityInfo data={{ email: sessionData.user.email }} />
-          <APIManage data={data.keys} />
           <Separator className="my-4" />
           <UpdateBankAccount profile={data} />
           <PayoutHistory />

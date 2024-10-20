@@ -2,6 +2,7 @@ import {
   CalendarIcon,
   DollarSignIcon,
   LayoutDashboardIcon,
+  ScanIcon,
   SettingsIcon,
   TicketIcon,
   UsersIcon
@@ -54,6 +55,12 @@ export const dashboardNavItems: DashboardNavItem[] = [
     icon: UsersIcon,
     srText: "Participants",
     name: "Participants",
+  },
+  {
+    href: "/dashboard/scan",
+    icon: ScanIcon,
+    srText: "Scan",
+    name: "Scan",
   },
   {
     href: "/dashboard/settings",

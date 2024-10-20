@@ -15,11 +15,7 @@ import PaymentsPieChart from "@/components/PaymentsPieChart";
 import RevenueLineChart from "@/components/RevenueLineChart";
 import SalesBarChart from "@/components/SalesBarChart";
 import SheetNav from "@/components/SheetNav";
-import {
-  DollarSignIcon,
-  TicketIcon,
-  UsersIcon
-} from "@/components/ui/Icons";
+import { DollarSignIcon, TicketIcon, UsersIcon } from "@/components/ui/Icons";
 import { CalendarClock, CreditCard } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -302,27 +298,17 @@ export default async function DashboardPage() {
                     <p className="text-sm text-muted-foreground">
                       Cash Payments:{" "}
                       <span className="font-bold ml-1">
-                        {Intl.NumberFormat("en-US", {
-                          style: "currency",
-                          currency: "LKR",
-                        }).format(
-                          dashboardData.payment_methods.find(
-                            (method: { method: number }) => method.method === 1
-                          )?.count ?? 0 * dashboardData.ticket_price
-                        )}
+                        {dashboardData.payment_methods.find(
+                          (method: { method: number }) => method.method === 1
+                        )?.count ?? 0}
                       </span>
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Card Payments:{" "}
                       <span className="font-bold ml-1">
-                        {Intl.NumberFormat("en-US", {
-                          style: "currency",
-                          currency: "LKR",
-                        }).format(
-                          dashboardData.payment_methods.find(
-                            (method: { method: number }) => method.method === 2
-                          )?.count ?? 0 * dashboardData.ticket_price
-                        )}
+                        {dashboardData.payment_methods.find(
+                          (method: { method: number }) => method.method === 2
+                        )?.count ?? 0}
                       </span>
                     </p>
                   </div>
@@ -330,9 +316,7 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-          <div>
-            
-          </div>
+          <div></div>
         </main>
       </div>
     </div>

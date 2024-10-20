@@ -1123,7 +1123,6 @@ service /events on httpListener {
         }
     }
 
-<<<<<<< HEAD
     resource function post payhere(http:Caller caller, http:Request req) returns error? {
         // Parse the JSON payload
         json payload = check req.getJsonPayload();
@@ -1136,6 +1135,7 @@ service /events on httpListener {
         string? ticketId = payload.ticket_id is () ? () : (check payload.ticket_id).toString();
         int? paymentMethod = payload.payment_method is () ? () : (check int:fromString((check payload.payment_method).toString()));
         string? statusCode = payload.status_code is () ? () : (check payload.status_code).toString();
+        string? event_organizer = payload.event_organizer is () ? () : (check payload.event_organizer).toString();
 
         // Validate required fields for ticket creation
         if name is () || email is () || mobile is () || ticketId is () || paymentMethod is () || statusCode is () {
@@ -1195,12 +1195,17 @@ service /events on httpListener {
             return;
         }
 
+        sql:ParameterizedQuery query = `SELECT update_to_be_paid(CAST(${event_organizer} AS UUID), ${amount})`;
+
+        // Execute the SQL query
+        var result = check self.databaseClient->execute(query);
+
+
         // Respond with success message
         check caller->respond({"message": "Ticket and payment processed successfully"});
     }
 
 
-=======
     resource function get deafult_event_tickets(http:Caller caller, http:Request req) returns error? {
 
         string createdBy = "";
@@ -1530,7 +1535,6 @@ group by e.id;
             }
         }
     }
->>>>>>> e93dd77b6c2e96d8fd7fccd81077f6f24310733b
 }
 
 @http:ServiceConfig {

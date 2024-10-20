@@ -10,7 +10,7 @@ import {
 
 import Link from "next/link";
 import { EventListCmb } from "./EventListCmb";
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { Event } from "@/types";
 
 async function AccountOptions() {
@@ -38,7 +38,10 @@ async function AccountOptions() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Avatar>
-            <AvatarImage src={user.avatar_url ?? undefined} alt="User profile picture" />
+            <AvatarImage
+              src={user.avatar_url ?? undefined}
+              alt="User profile picture"
+            />
             <AvatarFallback>
               {(user.full_name ?? "User")
                 .split(" ")
@@ -57,11 +60,19 @@ async function AccountOptions() {
             <DropdownMenuItem>Support</DropdownMenuItem>
           </Link>
           <DropdownMenuSeparator />
-          <form action="">
-            <DropdownMenuItem>
+
+          <DropdownMenuItem>
+            <form
+              action={async () => {
+                "use server";
+                await signOut({
+                  redirectTo: "/login",
+                });
+              }}
+            >
               <button>Logout</button>
-            </DropdownMenuItem>
-          </form>
+            </form>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

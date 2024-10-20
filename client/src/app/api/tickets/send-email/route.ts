@@ -33,22 +33,40 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Ticket not paid" }, { status: 400 });
     }
 
-    const supabase = createClient();
-
-    const { data: eventData, error: fetchError } = await supabase
-      .from("events_anon_view")
-      .select()
-      .eq("id", event_id)
-      .single()
-      .returns<Event[]>();
-
-    if (fetchError && fetchError.code == "PGRST116") {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_BAL_URL}/events/activateTicket`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ticket_id }),
+      }
+    );
+    if (!res.ok) {
+      throw new Error("An error occurred while updating lunch");
     }
 
-    const emaildetails = {
-      username: name,
-      event: event_name,
+    const tres = await fetch(
+      `${process.env.NEXT_PUBLIC_BAL_URL}/events/ticket_details?ticketId=${ticket_id}`
+    );
+
+    const ticket = await tres.json();
+
+    console.log(ticket);
+    console.log(ticket.email);
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BAL_URL}/events/event_by_id?id=${ticket.event.id}`
+    );
+    const eventData = await response.json();
+    console.log(eventData);
+    if (!eventData) {
+      throw new Error("An error occurred while fetching event data");
+    }
+    const emailDetails = {
+      username: ticket.name,
+      event: eventData.name,
       eventImage: eventData.image,
       date: new Date(eventData.date).toLocaleDateString("en-US", {
         day: "numeric",
@@ -68,15 +86,16 @@ export async function POST(req: Request) {
       ticketUrl: `https://eventure.vercel.app/tickets/${ticket_id}`,
     };
 
-    const { data, error } = await resend.emails.send({
-      from: "EVENTURE <eventure@notifibm.com>",
-      to: [email],
-      subject: `Your Ticket for ${event_name}`,
-      react: TicketConfirmation(emaildetails),
+    const { data, error: emailError } = await resend.emails.send({
+      from: "Eventure <eventure@notifibm.com>",
+      to: [ticket.email],
+      subject: `Your Ticket for ${eventData.name}`,
+      react: TicketConfirmation(emailDetails),
     });
 
-    if (error) {
-      return Response.json({ error }, { status: 500 });
+    if (emailError) {
+      console.error(emailError);
+      throw new Error("An error occurred while sending email");
     }
 
     return Response.json(data);

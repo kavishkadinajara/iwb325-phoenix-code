@@ -21,12 +21,7 @@ function MobileNav({ active }: { active: string }) {
             prefetch={false}
           >
             {/* <TicketIcon className="h-4 w-4 transition-all group-hover:scale-110" /> */}
-            <Image
-              src="/N-logo-transparent.png"
-              alt="Eventure"
-              width={30}
-              height={30}
-            />
+            <Image src="/E-logo.png" alt="Eventure" width={30} height={30} />
             <span className="sr-only">Eventure</span>
           </Link>
           {dashboardNavItems.map((item) => (

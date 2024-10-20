@@ -8,7 +8,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-// import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 
 type Payout = {

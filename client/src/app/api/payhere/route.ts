@@ -41,14 +41,15 @@ export async function POST(req: Request, res: Response) {
   try {
     // Create the payment and ticket data objects
     const paymentData = {
-      name: "John Doe", // Replace with actual user data if available
-      email: "john@example.com", // Replace with actual user data if available
-      mobile: "1234567890", // Replace with actual user data if available
+      name: "system",
+      email: "system", 
+      mobile: "system", 
       ticket_id: order_id,
       payment_id: payment_id,
-      payment_method: method === "Visa" ? 1 : 2, // Adjust payment method based on your logic
+      payment_method: method === "Visa" ? 1 : 2, 
       amount: amount,
       status_code: status_code === "2" ? 1 : status_code === "-3" ? 2 : 0, // 0 = not-paid, 1 = paid, 2 = refunded
+      event_organizer: event_organizer,
     };
 
     // Make the HTTP request to the Ballerina backend

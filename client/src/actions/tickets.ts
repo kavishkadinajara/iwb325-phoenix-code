@@ -136,13 +136,8 @@ export const activateTicket = async (id: string) => {
   };
 
   const { data, error: emailError } = await resend.emails.send({
-<<<<<<< HEAD
-    from: "NIBMTix <eventure@notifibm.com>",
-    to: [ticketData.email],
-=======
     from: "Eventure <eventure@notifibm.com>",
     to: [ticket.email],
->>>>>>> e93dd77b6c2e96d8fd7fccd81077f6f24310733b
     subject: `Your Ticket for ${eventData.name}`,
     react: TicketConfirmation(emailDetails),
   });

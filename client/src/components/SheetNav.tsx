@@ -23,7 +23,7 @@ function SheetNav({ active }: { active: string }) {
             prefetch={false}
           >
             {/* <TicketIcon className="h-5 w-5 transition-all group-hover:scale-110" /> */}
-            <Image src="/N-logo-transparent.png" alt="Eventure" width={40} height={40} />
+            <Image src="/E-logo.png" alt="Eventure" width={40} height={40} />
             <span className="sr-only">Eventure</span>
           </Link>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
