@@ -47,7 +47,7 @@ import {
               <Row>
                 <Hr style={hr} />
                 <Text style={footer}>© 2024 | EVENTURE | All rights reserved</Text>
-                <Link href="https://eventure.vercel.app/support" style={reportLink}>
+                <Link href="https://eventurelk.vercel.app/support" style={reportLink}>
                   Report unsafe behavior
                 </Link>
               </Row>

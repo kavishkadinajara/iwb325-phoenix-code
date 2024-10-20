@@ -116,7 +116,7 @@ import {
               <Img
                 style={image}
                 width={620}
-                src={`https://eventure.vercel.app/email-footer.png`}
+                src={`https://eventurelk.vercel.app/email-footer.png`}
               />
             </Section>
   
