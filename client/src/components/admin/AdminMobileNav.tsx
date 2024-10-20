@@ -21,7 +21,7 @@ import {
               prefetch={false}
             >
               <TicketIcon className="h-4 w-4 transition-all group-hover:scale-110" />
-              <span className="sr-only">NIBMTix</span>
+              <span className="sr-only">EVENTURE</span>
             </Link>
             {adminDashboardNavItems.map((item) => (
               <Tooltip key={item.name}>

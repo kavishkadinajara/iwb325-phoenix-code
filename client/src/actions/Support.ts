@@ -19,8 +19,8 @@ export const contactSupport = async (prevState: any, formData: FormData) => {
     };
 
     const { data, error: emailError } = await resend.emails.send({
-      from: "NIBMTix <nibmtix@notifibm.com>",
-      to: "NIBMTix Support <contact@supunsathsara.com>",
+      from: "EVENTURE <eventure@notifibm.com>",
+      to: "EVENTURE Support <contact@supunsathsara.com>",
       replyTo: userEmail,
       subject: `Support Inquiry: ${subject}`,
       react: SupportInquiry(emailDetails),

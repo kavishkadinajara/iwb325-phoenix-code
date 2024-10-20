@@ -24,7 +24,7 @@ const SupportPage = () => {
           >
             <Image
               src="/Logo-horizontal.svg"
-              alt="NIBMTiX"
+              alt="EVENTURE"
               width={120}
               height={40}
             />
@@ -85,7 +85,7 @@ const SupportPage = () => {
             <div className="space-y-2">
               <h3 className="text-xl font-bold">Download the App</h3>
               <p className="text-muted-foreground">
-                Get the NIBMTix app for seamless event management on the go.
+                Get the EVENTURE app for seamless event management on the go.
               </p>
               <div className="flex gap-2">
                 <Link
@@ -174,12 +174,12 @@ const SupportPage = () => {
             <Accordion type="single" collapsible>
               <AccordionItem value="question1">
                 <AccordionTrigger className="text-base font-semibold">
-                  How do I download the NIBMTix app?
+                  How do I download the EVENTURE app?
                 </AccordionTrigger>
                 <AccordionContent>
                   <p className="text-muted-foreground">
-                    To download the NIBMTix app, simply visit the App Store or
-                    Google Play and search for &quot;NIBMTix&quot;. Follow the
+                    To download the EVENTURE app, simply visit the App Store or
+                    Google Play and search for &quot;EVENTURE&quot;. Follow the
                     on-screen instructions to install the app on your device.
                   </p>
                 </AccordionContent>

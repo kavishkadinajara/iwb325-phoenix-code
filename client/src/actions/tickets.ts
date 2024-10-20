@@ -105,11 +105,11 @@ export const activateTicket = async (id: string) => {
     }),
     location: eventData.location,
     ticketId: id,
-    ticketUrl: `https://nibmtix.vercel.app/tickets/${id}`,
+    ticketUrl: `https://eventure.vercel.app/tickets/${id}`,
   };
 
   const { data, error: emailError } = await resend.emails.send({
-    from: "NIBMTix <nibmtix@notifibm.com>",
+    from: "EVENTURE <eventure@notifibm.com>",
     to: [ticketData.email],
     subject: `Your Ticket for ${eventData.name}`,
     react: TicketConfirmation(emailDetails),
