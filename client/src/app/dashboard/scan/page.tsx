@@ -3,26 +3,41 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { activateTicket } from "@/actions/tickets";
+import { markAttendance } from "@/actions/tickets";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { QrReader } from "react-qr-reader";
 
 export default function QRScannerDashboard() {
   const [scanning, setScanning] = useState(false);
+  const { toast } = useToast();
 
   const [data, setData] = useState("No result");
   const [scannedList, setScannedList] = useState<string[]>([]);
 
   // This is a mock function. Replace it with your actual logic.
   const handleScannedText = async (text: string) => {
-    await activateTicket(text);
-    console.log("Scanned text:", text);
-    setData(text);
-    setScannedList([...scannedList, text]);
+    try {
+      await markAttendance(text);
+      console.log("Scanned text:", text);
+      setData(text);
+      setScannedList([...scannedList, text]);
+      toast({
+        title: "QR code scanned",
+        description: text,
+        type: "foreground",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "An error occurred while scanning the QR code",
+        type: "background",
+      });
+    }
 
-    // Add your logic here, e.g., API calls, state updates, etc.
   };
 
   return (

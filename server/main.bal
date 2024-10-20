@@ -1200,11 +1200,9 @@ service /events on httpListener {
         // Execute the SQL query
         var result = check self.databaseClient->execute(query);
 
-
         // Respond with success message
         check caller->respond({"message": "Ticket and payment processed successfully"});
     }
-
 
     resource function get deafult_event_tickets(http:Caller caller, http:Request req) returns error? {
 
@@ -1282,6 +1280,39 @@ service /events on httpListener {
         sql:ParameterizedQuery updateQuery = `UPDATE public.tickets
                               SET attendance = ${attendance}, arrival = ${arrival}::timestamptz
                               WHERE id = CAST(${id} AS UUID) 
+                              RETURNING *`;
+        var result = self.databaseClient->execute(updateQuery);
+
+        // Check if the query execution was successful
+        if result is sql:ExecutionResult {
+            // Fetch the updated row
+
+            //send a success message
+            json response = {
+                message: "Attendance updated successfully"
+            };
+            checkpanic caller->respond(response);
+        } else if result is error {
+            // Log and return the error if something went wrong
+            log:printError("Error occurred while updating attendance", result);
+            return error("An error occurred while updating attendance");
+        }
+
+    }
+
+    resource function post markAttendance(http:Caller caller, http:Request req) returns error? {
+        // Parse the request payload
+        json payload = check req.getJsonPayload();
+
+        // Extract fields from the payload
+        string id = (check payload.id).toString();
+        int attendance = check int:fromString((check payload.attendance).toString());
+        string arrival = (check payload.arrival).toString();
+
+        // Execute the query with parameters
+        sql:ParameterizedQuery updateQuery = `UPDATE public.tickets
+                              SET attendance = ${attendance}, arrival = ${arrival}::timestamptz
+                              WHERE id = CAST(${id} AS UUID) AND status = 0
                               RETURNING *`;
         var result = self.databaseClient->execute(updateQuery);
 

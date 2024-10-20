@@ -11,7 +11,7 @@ export default function AuthLayout({
         <Image
           width={2000}
           height={2000}
-          src="/images/login.png"
+          src="/images/badge.png"
           alt="Auth background"
           className="object-cover flex justify-center items-center w-[550px] h-[550px] relative left-28 top-28 shadow-2xl shadow-black-100 rounded-lg transition-transform duration-500 ease-in-out transform hover:scale-105 custom-bounce"
         />

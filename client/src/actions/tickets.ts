@@ -105,14 +105,14 @@ export const activateTicket = async (id: string) => {
 
   const ticket = await tres.json();
 
-  console.log(ticket)
-  console.log(ticket.email)
+  console.log(ticket);
+  console.log(ticket.email);
 
   const response = await fetch(
     `${process.env.NEXT_PUBLIC_BAL_URL}/events/event_by_id?id=${ticket.event.id}`
   );
   const eventData = await response.json();
-  console.log(eventData)
+  console.log(eventData);
   if (!eventData) {
     throw new Error("An error occurred while fetching event data");
   }
@@ -168,6 +168,34 @@ export const refundTicket = async (id: string) => {
   }
 
   console.log("refundTicket", id);
+
+  revalidatePath("/dashboard/tickets");
+  revalidatePath("/dashboard/participants");
+};
+
+export const markAttendance = async (id: string) => {
+  const attendance = 1;
+
+  let arrival = null;
+
+  arrival = new Date().toISOString();
+
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/updateAttendance`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id, attendance, arrival }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error("An error occurred while updating attendance");
+  }
+
+  // console.log(data);
+  console.log("toggleAttendance", id, attendance, arrival);
 
   revalidatePath("/dashboard/tickets");
   revalidatePath("/dashboard/participants");
