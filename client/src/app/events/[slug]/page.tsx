@@ -2,28 +2,13 @@ import CountDown from "@/components/CountDown";
 import MagicButton from "@/components/MagicButton";
 import { Clock, MapPin } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+// import { notFound } from "next/navigation";
 import { FaBan, FaLocationArrow } from "react-icons/fa6";
 
 const EventLandingPage = async ({ params }: { params: { slug: string } }) => {
-  const supabase = createClient();
 
-  const { data: eventData, error } = await supabase
-    .from("events_anon_view")
-    .select()
-    .eq("slug", params.slug)
-    .eq("status", 1)
-    .single()
-    .returns<Event[]>();
 
-  if (error && error.code == "PGRST116") {
-    notFound();
-  }
 
-  if (error) {
-    console.error(error.message);
-    return <div>ERROR</div>;
-  }
 
   return (
     <div className="flex flex-col md:flex-row">
