@@ -1050,6 +1050,82 @@ service /events on httpListener {
         }
     }
 
+    resource function post payhere(http:Caller caller, http:Request req) returns error? {
+        // Parse the JSON payload
+        json payload = check req.getJsonPayload();
+
+        // Extract relevant fields for ticket creation
+        string? name = payload.name is () ? () : (check payload.name).toString();
+        string? email = payload.email is () ? () : (check payload.email).toString();
+        string? mobile = payload.mobile is () ? () : (check payload.mobile).toString();
+        // string? eventId = payload.event_id is () ? () : (check payload.event_id).toString();
+        string? ticketId = payload.ticket_id is () ? () : (check payload.ticket_id).toString();
+        int? paymentMethod = payload.payment_method is () ? () : (check int:fromString((check payload.payment_method).toString()));
+        string? statusCode = payload.status_code is () ? () : (check payload.status_code).toString();
+
+        // Validate required fields for ticket creation
+        if name is () || email is () || mobile is () || ticketId is () || paymentMethod is () || statusCode is () {
+            check caller->respond({"error": "Missing required fields for ticket creation"});
+            return;
+        }
+
+        // Define the ticket status based on status_code
+        int ticketStatus = statusCode == "2" ? 1 : statusCode == "-3" ? 2 : 0; // 0 = not-paid, 1 = paid, 2 = refunded
+
+        // Define the query to insert data into the tickets table
+        sql:ParameterizedQuery ticketInsertQuery = `INSERT INTO tickets (
+            id, name, email, mobile, payment_method, status
+        ) VALUES (
+            CAST(${ticketId} AS UUID), ${name}, ${email}, ${mobile}, ${paymentMethod}, ${ticketStatus}
+        ) ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        email = EXCLUDED.email,
+        mobile = EXCLUDED.mobile,
+        payment_method = EXCLUDED.payment_method,
+        status = EXCLUDED.status`;
+
+        // Execute the ticket insert query
+        var ticketResult = self.databaseClient->execute(ticketInsertQuery);
+
+        // Check the result of the ticket insert query execution
+        if ticketResult is error {
+            log:printError("Error occurred while creating/updating ticket", ticketResult);
+            check caller->respond({"error": "Failed to create or update ticket"});
+            return;
+        }
+
+        // Extract relevant fields for payment management
+        string? paymentId = payload.payment_id is () ? () : (check payload.payment_id).toString();
+        decimal? amount = payload.amount is () ? () : (check decimal:fromString((check payload.amount).toString()));
+
+        // Validate required fields for payment
+        if paymentId is () || amount is () {
+            check caller->respond({"error": "Missing required fields for payment"});
+            return;
+        }
+
+        // Define the query to insert data into the payments table
+        sql:ParameterizedQuery paymentInsertQuery = `INSERT INTO payments (
+            ticket_id, payment_id, amount, status_code, payment_method
+        ) VALUES (
+            CAST(${ticketId} AS UUID), ${paymentId}, ${amount}, CAST(${statusCode} AS SMALLINT), CAST(${paymentMethod} AS SMALLINT)
+        )`;
+
+        // Execute the payment insert query
+        var paymentResult = self.databaseClient->execute(paymentInsertQuery);
+
+        // Check the result of the payment insert query execution
+        if paymentResult is error {
+            log:printError("Error occurred while inserting payment", paymentResult);
+            check caller->respond({"error": "Failed to process payment"});
+            return;
+        }
+
+        // Respond with success message
+        check caller->respond({"message": "Ticket and payment processed successfully"});
+    }
+
+
 }
 
 @http:ServiceConfig {
