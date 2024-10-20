@@ -14,3 +14,15 @@ type Event record {
     string description;
     int status;
 };
+
+type TicketDetails record {
+    string ticket_name;
+    string email;
+    int payment_method;
+    int status;
+    string event_id;
+    string event_name;
+    string event_date;
+    string event_time;
+    float ticket_price;
+};

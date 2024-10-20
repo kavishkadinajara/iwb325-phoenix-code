@@ -861,8 +861,6 @@ service /events on httpListener {
         // Parse the JSON payload
         json payload = check req.getJsonPayload();
 
-        // string? eventId = payload.event_id is () ? () : (check payload.event_id).toString();
-
         // Extract relevant fields from the payload
         string? ticketId = payload.ticket_id is () ? () : (check payload.ticket_id).toString();
         string? name = payload.name is () ? () : (check payload.name).toString();
@@ -925,6 +923,130 @@ service /events on httpListener {
         } else if result is error {
             log:printError("Error occurred while processing ticket purchase", result);
             checkpanic caller->respond({"error": "Failed to process ticket purchase"});
+        }
+    }
+
+    resource function get public_view(http:Caller caller, http:Request req) returns error? {
+
+        // Extract the slug from the query parameters
+        string? slug = req.getQueryParamValue("slug");
+
+        // If no slug is provided, return an error
+        if slug is () {
+            checkpanic caller->respond({"error": "Slug parameter is missing"});
+            return;
+        }
+
+        // Query to fetch the list of events
+        sql:ParameterizedQuery query = `SELECT 
+            id,
+            image,
+            name, 
+            date, 
+            time, 
+            location, 
+            tickets_sold, 
+            'default', 
+            available_tickets, 
+            ticket_price, 
+            slug, 
+            meal_provides, 
+            description, 
+            status 
+        FROM public.events_view
+        WHERE status = 1
+        AND slug = ${slug}
+        LIMIT 1`;
+
+        // Execute the query and specify the row type
+        stream<Event, sql:Error?> resultStream = self.databaseClient->query(query, Event);
+
+        // Initialize a JSON object to hold the event details
+        json eventDetails = {};
+
+        // Iterate through the stream and add the first event to the object
+        while true {
+            var result = resultStream.next();
+            if result is record {|Event value;|} {
+                Event event = result.value;
+                eventDetails = {
+                    "id": event.id.toString(),
+                    "name": event.name,
+                    "image": event.image,
+                    "date": event.date,
+                    "time": event.time,
+                    "location": event.location,
+                    "available_tickets": event.available_tickets,
+                    "ticket_price": event.ticket_price,
+                    "slug": event.slug,
+                    "meal_provides": event.meal_provides,
+                    "description": event.description,
+                    "status": event.status
+                };
+                break; // Exit the loop after the first event
+            } else if result is error {
+                log:printError("Error occurred while fetching events", result);
+                checkpanic caller->respond({"error": "Failed to fetch events"});
+                return;
+            } else {
+                break;
+            }
+        }
+
+        // Respond with the event details
+        checkpanic caller->respond(eventDetails);
+
+    }
+
+    resource function get ticket_details(string ticketId) returns json|error {
+        sql:ParameterizedQuery query = `SELECT 
+            t.name AS ticket_name,
+            t.email,
+            t.payment_method,
+            t.status,
+            t.event_id,
+            e.name AS event_name,
+            e.date AS event_date,
+            e.time AS event_time,
+            e.ticket_price AS event_ticket_price
+          FROM public.tickets t
+          JOIN public.events e ON t.event_id = e.id
+          WHERE t.id = CAST(${ticketId} AS UUID)
+          `;
+
+       // Execute the query
+        stream<TicketDetails, sql:Error?> result = self.databaseClient->query(query, TicketDetails);
+        TicketDetails? ticketDetails = ();
+        while true {
+            var res = result.next();
+            if res is record {|TicketDetails value;|} {
+                ticketDetails = res.value;
+                break;
+            } else if res is error {
+                log:printError("Error occurred while fetching ticket details", res);
+                return res;
+            } else {
+                break;
+            }
+        }
+
+        if ticketDetails is TicketDetails {
+            // Create a JSON response
+            json response = {
+                name: ticketDetails.ticket_name,
+                email: ticketDetails.email,
+                payment_method: ticketDetails.payment_method,
+                status: ticketDetails.status,
+                event: {
+                    name: ticketDetails.event_name,
+                    date: ticketDetails.event_date,
+                    time: ticketDetails.event_time,
+                    ticket_price: ticketDetails.ticket_price
+                }
+            };
+            return response; // Return the JSON response
+        } else {
+            return error("Ticket not found"); // Return error if no ticket found
         }
     }
 
