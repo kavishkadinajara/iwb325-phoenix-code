@@ -13,9 +13,24 @@ import {
   
   import AccountOptions from "@/components/AccountOptions";
   import ParticipantDetails from "@/components/ParticipantDetails";
+import { auth } from "@/auth";
   
   export default async function ParticipantsPage() {
-    const data: string | any[] = []; // Define the data variable with an empty array or fetch data as needed
+    const session = await auth();
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/deafult_event_tickets`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.accessToken}`,
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  console.log(data);
     
     return (
       <div className="flex min-h-screen w-full ">

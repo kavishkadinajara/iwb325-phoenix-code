@@ -26,3 +26,17 @@ type TicketDetails record {
     string event_time;
     float ticket_price;
 };
+
+type Ticket record {
+    string id;
+    string name;
+    string email;
+    string mobile;
+    int attendance;
+    string arrival;
+    int lunch;
+    int refreshments;
+    int payment_method;
+    int status;
+    string event_name;
+};
