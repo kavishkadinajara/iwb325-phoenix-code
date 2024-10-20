@@ -998,6 +998,77 @@ service /events on httpListener {
 
     }
 
+    resource function get event_by_id(http:Caller caller, http:Request req) returns error? {
+
+        // Extract the slug from the query parameters
+        string? id = req.getQueryParamValue("id");
+
+        // If no slug is provided, return an error
+        if id is () {
+            checkpanic caller->respond({"error": "id parameter is missing"});
+            return;
+        }
+
+        // Query to fetch the list of events
+        sql:ParameterizedQuery query = `SELECT 
+            id,
+            image,
+            name, 
+            date, 
+            time, 
+            location, 
+            tickets_sold, 
+            'default', 
+            available_tickets, 
+            ticket_price, 
+            slug, 
+            meal_provides, 
+            description, 
+            status 
+        FROM public.events_view
+        WHERE id = CAST(${id} AS UUID)
+        LIMIT 1`;
+
+        // Execute the query and specify the row type
+        stream<Event, sql:Error?> resultStream = self.databaseClient->query(query, Event);
+
+        // Initialize a JSON object to hold the event details
+        json eventDetails = {};
+
+        // Iterate through the stream and add the first event to the object
+        while true {
+            var result = resultStream.next();
+            if result is record {|Event value;|} {
+                Event event = result.value;
+                eventDetails = {
+                    "id": event.id.toString(),
+                    "name": event.name,
+                    "image": event.image,
+                    "date": event.date,
+                    "time": event.time,
+                    "location": event.location,
+                    "available_tickets": event.available_tickets,
+                    "ticket_price": event.ticket_price,
+                    "slug": event.slug,
+                    "meal_provides": event.meal_provides,
+                    "description": event.description,
+                    "status": event.status
+                };
+                break; // Exit the loop after the first event
+            } else if result is error {
+                log:printError("Error occurred while fetching events", result);
+                checkpanic caller->respond({"error": "Failed to fetch events"});
+                return;
+            } else {
+                break;
+            }
+        }
+
+        // Respond with the event details
+        checkpanic caller->respond(eventDetails);
+
+    }
+
     resource function get ticket_details(string ticketId) returns json|error {
         sql:ParameterizedQuery query = `SELECT 
             t.name AS ticket_name,
@@ -1008,7 +1079,8 @@ service /events on httpListener {
             e.name AS event_name,
             e.date AS event_date,
             e.time AS event_time,
-            e.ticket_price AS event_ticket_price
+            e.ticket_price AS event_ticket_price,
+            e.id AS event_id
           FROM public.tickets t
           JOIN public.events e ON t.event_id = e.id
           WHERE t.id = CAST(${ticketId} AS UUID)
@@ -1038,6 +1110,7 @@ service /events on httpListener {
                 payment_method: ticketDetails.payment_method,
                 status: ticketDetails.status,
                 event: {
+                    id: ticketDetails.event_id.toString(),
                     name: ticketDetails.event_name,
                     date: ticketDetails.event_date,
                     time: ticketDetails.event_time,
@@ -1241,6 +1314,144 @@ service /events on httpListener {
         }
     }
 
+    resource function post activateTicket(http:Caller caller, http:Request req) returns error? {
+        // Parse the request payload
+        json payload = check req.getJsonPayload();
+
+        // Extract fields from the payload
+        string id = (check payload.id).toString();
+
+        // Execute the query with parameters
+        sql:ParameterizedQuery updateQuery = `UPDATE public.tickets
+                              SET status = 1
+                              WHERE id = CAST(${id} AS UUID) 
+                              RETURNING *`;
+        var result = self.databaseClient->execute(updateQuery);
+
+        // Check if the query execution was successful
+        if result is sql:ExecutionResult {
+            // Fetch the updated row
+
+            //send a success message
+            json response = {
+                message: "Ticket activated successfully"
+            };
+            checkpanic caller->respond(response);
+        } else if result is error {
+            // Log and return the error if something went wrong
+            log:printError("Error occurred while updating attendance", result);
+            return error("An error occurred while updating attendance");
+        }
+    }
+
+    resource function get fetchEventDashboard(http:Caller caller, http:Request req) returns error? {
+        string createdBy = "";
+
+        string? authHeader = check req.getHeader("Authorization");
+
+        //use guard close
+        if (authHeader == null) {
+            checkpanic caller->respond({"error": "Authorization header is missing."});
+            return;
+        }
+
+        jwt:Payload|http:Unauthorized payload = authenticateJWT(authHeader);
+
+        if payload is http:Unauthorized {
+            checkpanic caller->respond({"error": "Unauthorized"});
+            return;
+        }
+
+        if payload is jwt:Payload {
+            //log:printInfo("JWT validation successful.");
+            string? sub = <string?>payload["sub"];
+            if sub == null {
+                check caller->respond("User not found in JWT payload.");
+                return;
+            }
+            createdBy = sub;
+
+        }
+
+        // Execute the query with the provided createdBy parameter
+        sql:ParameterizedQuery query = `
+with default_event as (
+    select id 
+    from public.events 
+    where "default" = true and created_by = CAST(${createdBy} AS UUID)
+)
+select json_build_object(
+    'event_name', e.name,
+    'event_date', e.date,
+    'ticket_price', e.ticket_price,
+    'total_ticket_sales', count(t.id),
+    'total_paid_tickets', count(t.id) filter (where t.status = 1),
+    'total_unpaid_tickets', count(t.id) filter (where t.status = 0),
+    'total_refunded_tickets', count(t.id) filter (where t.status = 2),
+    'total_revenue', coalesce(sum(e.ticket_price), 0),
+    'attended_people', count(t.id) filter (where t.attendance > 0),
+    'tickets_sold', count(t.id),  -- Total tickets sold
+    'tickets_available', e.available_tickets,  -- Total tickets available
+    'tickets_by_day', (
+        select json_agg(
+            json_build_object(
+                'date', day_stats.day,
+                'tickets_sold', day_stats.tickets_sold
+            )
+        ) 
+        from (
+           SELECT
+  DATE_TRUNC(
+    'day',
+    t2.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Colombo'
+  ) AS DAY,
+  COUNT(*) AS tickets_sold
+FROM
+  public.tickets t2
+WHERE
+  t2.event_id = e.id
+  AND t2.created_at >= CURRENT_DATE - INTERVAL '7 days'
+GROUP BY
+  DAY ) as day_stats
+    ),
+    'payment_methods', (
+        select json_agg(
+            json_build_object(
+                'method', pm.payment_method,
+                'count', pm.method_count
+            )
+        ) 
+        from (
+            select 
+                t4.payment_method,
+                count(*) as method_count
+            from public.tickets t4
+            where t4.event_id = e.id
+            group by t4.payment_method
+        ) as pm
+    )
+) as event_dashboard
+from public.tickets t
+join public.events e on t.event_id = e.id
+where e.id = (select id from default_event)
+group by e.id;
+        `;
+
+        // Execute the query
+        var result = self.databaseClient->query(query, EventDashboard);
+
+        // Check if the query execution was successful
+        if result is stream<record {|anydata...;|}, sql:Error?> {
+            // Fetch the first row as JSON (since json_build_object returns JSON)
+            var row = result.next();
+            if row is map<anydata> {
+                // Return the event dashboard as JSON
+                checkpanic caller->respond(row);
+            } else {
+                return error("No event dashboard found for this user.");
+            }
+        }
+    }
 }
 
 @http:ServiceConfig {

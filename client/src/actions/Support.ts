@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { SupportInquiry } from "@/emails/SupportInquiry";
@@ -19,8 +20,8 @@ export const contactSupport = async (prevState: any, formData: FormData) => {
     };
 
     const { data, error: emailError } = await resend.emails.send({
-      from: "EVENTURE <eventure@notifibm.com>",
-      to: "EVENTURE Support <contact@supunsathsara.com>",
+      from: "Eventure <eventure@notifibm.com>",
+      to: "Eventure Support <contact@supunsathsara.com>",
       replyTo: userEmail,
       subject: `Support Inquiry: ${subject}`,
       react: SupportInquiry(emailDetails),

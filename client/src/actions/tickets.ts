@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use server";
 import TicketConfirmation from "@/emails/TicketConfirmation";
 import { Event } from "@/types";
@@ -84,31 +85,39 @@ export const toggleLunch = async (id: string, lunch: number) => {
 };
 
 export const activateTicket = async (id: string) => {
-  // const { data: ticketData, error } = await supabase
-  //   .from("tickets")
-  //   .update({ status: 1 })
-  //   .eq("id", id)
-  //   .select()
-  //   .single();
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/activateTicket`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error("An error occurred while updating lunch");
+  }
 
-  // const { data: eventData, error: fetchError } = await supabase
-  //   .from("events_anon_view")
-  //   .select()
-  //   .eq("id", ticketData.event_id)
-  //   .single()
-  //   .returns<Event[]>();
+  const tres = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/ticket_details?ticketId=${id}`
+  );
 
-  // if (fetchError && fetchError.code == "PGRST116") {
-  //   throw new Error("Event not found");
-  // }
+  const ticket = await tres.json();
 
-  // if (fetchError) {
-  //   console.error(fetchError);
-  //   throw new Error("An error occurred while fetching event data");
-  // }
+  console.log(ticket)
+  console.log(ticket.email)
 
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/event_by_id?id=${ticket.event.id}`
+  );
+  const eventData = await response.json();
+  console.log(eventData)
+  if (!eventData) {
+    throw new Error("An error occurred while fetching event data");
+  }
   const emailDetails = {
-    username: ticketData.name,
+    username: ticket.name,
     event: eventData.name,
     eventImage: eventData.image,
     date: new Date(eventData.date).toLocaleDateString("en-US", {
@@ -127,21 +136,16 @@ export const activateTicket = async (id: string) => {
   };
 
   const { data, error: emailError } = await resend.emails.send({
-    from: "EVENTURE <eventure@notifibm.com>",
-    to: [ticketData.email],
+    from: "Eventure <eventure@notifibm.com>",
+    to: [ticket.email],
     subject: `Your Ticket for ${eventData.name}`,
     react: TicketConfirmation(emailDetails),
   });
 
-  // if (emailError) {
-  //   console.error(emailError);
-  //   throw new Error("An error occurred while sending email");
-  // }
-
-  // if (error) {
-  //   console.error(error);
-  //   throw new Error("An error occurred while activating ticket");
-  // }
+  if (emailError) {
+    console.error(emailError);
+    throw new Error("An error occurred while sending email");
+  }
 
   console.log("activateTicket", id);
 
