@@ -3,12 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DownloadCloudIcon } from "lucide-react";
 import { notFound } from "next/navigation";
-import { supabase } from "@/utils/supabase/serviceUser";
 
-export const revalidate = 0
+export const revalidate = 0;
 
 const SuccessPage = async ({
-  params,
   searchParams,
 }: {
   params: { slug: string };
@@ -17,31 +15,14 @@ const SuccessPage = async ({
   if (!searchParams.ticket) {
     notFound();
   }
+  // curl --location 'http://localhost:8080/events/ticket_details?ticketId=069acca2-bdd1-4371-9352-3c70ec93de58'
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/ticket_details?ticketId=${searchParams.ticket}`
+  );
 
-  // ! SHOULD BE ONLY RUN ON THE SERVER
-  const { data: ticket, error } = await supabase
-    .from("tickets")
-    .select(
-      `
-    name,
-    email,
-    payment_method,
-    status,
-    event_id,
-    event:events(name, date, time, ticket_price)
-  `
-    )
-    .eq("id", searchParams.ticket)
-    .single();
+  const ticket = await res.json();
 
-  if (error && error.code == "PGRST116") {
-    notFound();
-  }
-
-  if (error) {
-    console.error(error);
-    return new Error("An error occurred");
-  }
+  console.log(ticket);
   return (
     <div className="flex flex-col md:flex-row w-full">
       <div className="justify-center relative my-4 z-10 w-full">

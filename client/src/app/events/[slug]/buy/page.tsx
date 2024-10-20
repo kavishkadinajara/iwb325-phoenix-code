@@ -1,8 +1,6 @@
 import BuyTicketForm from "@/components/BuyTicketForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Event } from "@/types";
-import { createClient } from "@/utils/supabase/server";
 import { createHash } from "crypto";
 import {
   CalendarCheck,
@@ -14,23 +12,12 @@ import { notFound } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 
 const TicketBuyPage = async ({ params }: { params: { slug: string } }) => {
-  const supabase = createClient();
-
-  const { data: eventData, error } = await supabase
-    .from("events_anon_view")
-    .select()
-    .eq("slug", params.slug)
-    .eq("status", 1)
-    .single()
-    .returns<Event[]>();
-
-  if (error && error.code == "PGRST116") {
-    notFound();
-  }
-
-  if (error) {
-    console.error(error.message);
-    return <div>ERROR</div>;
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/public_view?slug=${params.slug}`
+  );
+  const eventData = await res.json();
+  if (!eventData) {
+    return notFound();
   }
 
   const ticketId = uuidv4();

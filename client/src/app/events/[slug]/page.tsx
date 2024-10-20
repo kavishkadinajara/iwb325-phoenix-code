@@ -2,13 +2,17 @@ import CountDown from "@/components/CountDown";
 import MagicButton from "@/components/MagicButton";
 import { Clock, MapPin } from "lucide-react";
 import Link from "next/link";
-// import { notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { FaBan, FaLocationArrow } from "react-icons/fa6";
 
 const EventLandingPage = async ({ params }: { params: { slug: string } }) => {
-
-
-
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/public_view?slug=${params.slug}`
+  );
+  const eventData = await res.json();
+  if (!eventData) {
+    return notFound();
+  }
 
   return (
     <div className="flex flex-col md:flex-row">

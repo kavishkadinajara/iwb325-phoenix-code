@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,6 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import clearCachesByServerAction from "@/lib/revalidate";
 import { Event } from "@/types";
-import { createClient } from "@/utils/supabase/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { ClipboardCopy } from "lucide-react";
@@ -45,10 +45,6 @@ const TicketsRegistrationSchema = z.object({
     .string()
     .min(9, "You must enter a valid mobile number")
     .max(12, "You must enter a valid mobile number"),
-  batch: z
-    .string()
-    .min(2, "You must enter a batch")
-    .max(15, "Batch must be less than 15 characters"),
   mealType: z.enum(["1", "2", "3"]).optional(),
   paymentMethod: z.enum(["card", "cash"]).optional(),
 });
@@ -79,7 +75,6 @@ const BuyTicketForm: React.FC<BuyTicketFormProps> = ({
       name: "",
       email: "",
       phone: "",
-      batch: "",
       mealType: undefined,
       paymentMethod: undefined,
     },
@@ -99,75 +94,81 @@ const BuyTicketForm: React.FC<BuyTicketFormProps> = ({
     // Save the ticket to the database
     const ticketStatus = eventData.ticket_price === 0 ? 1 : 0;
     try {
-      const supabase = createClient();
+      //       curl --location 'http://localhost:8080/events/purchase' \
+      // --header 'Content-Type: application/json' \
+      // --data-raw '{
+      //   "ticket_id": "069acca2-bdd1-4371-9352-3c70ec93de58",
+      //   "name": "John Doe",
+      //   "email": "john.doe@example.com",
+      //   "mobile": "1234567890",
+      //   "meal_type": 1,
+      //   "payment_method": 2,
+      //   "event_name": "Masthani Night",
+      //   "event_image": "https://example.com/event-image.jpg",
+      //   "status": 0,
+      //   "event_id": "150929e0-1b45-49f4-9096-a9987d06b1ba"
+      // }'
 
-      let newTicket = {};
-      if (paymentMethod === 2) {
-        // If the payment method is card, don't pass the status
-        newTicket = {
-          _ticket_id: ticketId,
-          _name: data.name,
-          _email: data.email,
-          _mobile: data.phone,
-          _meal_type: data.mealType ? parseInt(data.mealType) : null,
-          _payment_method: paymentMethod || null,
-          _status: null, // Pass null to omit status
-          _event_id: eventData.id,
-          _event_name: eventData.name,
-          _event_image: eventData.image,
-        };
-      } else {
-        newTicket = {
-          _ticket_id: ticketId,
-          _name: data.name,
-          _email: data.email,
-          _mobile: data.phone,
-          _meal_type: data.mealType ? parseInt(data.mealType) : null,
-          _payment_method: paymentMethod || null,
-          _status: ticketStatus, // Pass the status value
-          _event_id: eventData.id,
-          _event_name: eventData.name,
-          _event_image: eventData.image,
-        };
-      }
-
-      const { data: ticketData, error: insertError } = await supabase.rpc(
-        "process_ticket_purchase",
-        newTicket
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BAL_URL}/events/purchase`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ticket_id: ticketId,
+            name: data.name,
+            email: data.email,
+            mobile: data.phone,
+            meal_type: data.mealType || 0,
+            payment_method: paymentMethod,
+            event_name: eventData.name,
+            event_image: eventData.image,
+            status: ticketStatus,
+            event_id: eventData.id,
+          }),
+        }
       );
 
-      if (insertError) {
-        if (
-          insertError.message.includes(
-            "You can't have two pending tickets with the same email."
-          )
-        ) {
-          setError("You can't have two pending tickets with the same email. Activate the previous ticket or contact the organizer.");
-          // Show error toast
-          toast({
-            title: "Pending Ticket Already Exists",
-            description:
-              "You can't have two pending tickets with the same email. Activate the previous ticket or contact the organizer.",
-            type: "foreground",
-          });
-          return;
-        }
+      if (res.ok) {
+        // Show success toast
+        toast({
+          title: "Success",
+          description: "Your ticket has been created successfully",
+          type: "foreground",
+        });
 
-        console.error("Error adding ticket:", insertError.message);
-        setError("Sorry, we couldn't create your ticket");
+        // Clear the form
+        form.reset();
+
+        // Clear the error message
+        setError(null);
+
+        // Clear the payment order ID
+        setPaymentOrderId(null);
+
+        // Clear the copied state
+        setCopied(false);
+
+        // Clear the hash
+        clearCachesByServerAction(`/events/${eventData.slug}`);
+
+        // Redirect to the success page
+        router.push(`/events/${eventData.slug}/buy/success?ticket=${ticketId}`);
+      } else {
+        console.error("Error adding ticket:", res.statusText);
+        setError("Sorry, Something went wrong while creating your ticket");
         // Show error toast
         toast({
           title: "Error",
-          description: "Sorry, we couldn't create your ticket",
+          description: "Sorry, Something went wrong while creating your ticket",
           type: "foreground",
         });
-        return;
-      } else {
-        clearCachesByServerAction(`/events/${eventData.slug}`);
-        router.push(`/events/${eventData.slug}/buy/success?ticket=${ticketId}`);
       }
     } catch (error) {
       console.error("Error adding ticket:", error);
+      setError("Sorry, Something went wrong while creating your ticket");
       // Show error toast
       toast({
         title: "Error",
@@ -180,6 +181,8 @@ const BuyTicketForm: React.FC<BuyTicketFormProps> = ({
   async function onSubmit(values: TicketsRegistrationSchemaType) {
     // ✅ This will be type-safe and validated.
     //console.log(values);
+
+    console.log("submitting form");
 
     // if the event is free, no need to proceed with the payment
     if (eventData.ticket_price === 0) {
@@ -287,7 +290,7 @@ const BuyTicketForm: React.FC<BuyTicketFormProps> = ({
               </div>
             )
           }
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-2">
             <div className="grid gap-2">
               <FormField
                 control={form.control}
@@ -297,21 +300,6 @@ const BuyTicketForm: React.FC<BuyTicketFormProps> = ({
                     <FormLabel>Name</FormLabel>
                     <FormControl>
                       <Input id="name" placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="grid gap-2">
-              <FormField
-                control={form.control}
-                name="batch"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Batch</FormLabel>
-                    <FormControl>
-                      <Input id="batch" placeholder="GAHDSE231F" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -463,10 +451,7 @@ const BuyTicketForm: React.FC<BuyTicketFormProps> = ({
           </Button>
         </form>
       </Form>
-      <Script
-        type="text/javascript"
-        src="/js/payhere.js"
-      ></Script>
+      <Script type="text/javascript" src="/js/payhere.js"></Script>
     </>
   );
 };
