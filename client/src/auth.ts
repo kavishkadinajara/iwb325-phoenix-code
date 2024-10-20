@@ -47,6 +47,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
 
+      if (trigger === "signUp" && profile?.email) {
+        //save to db
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_BAL_URL}/auth/register`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              id: token.id,
+              name: token.name,
+              email: profile?.email,
+              image: profile?.picture,
+            }),
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error("Error saving user");
+        }
+      }
+
+
       return token;
     },
     async session({ session, token }) {
