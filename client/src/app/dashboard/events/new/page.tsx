@@ -330,7 +330,7 @@ export default function NewEventsPage() {
                     <FormItem>
                       <FormLabel>Location</FormLabel>
                       <FormControl>
-                        <Input placeholder="NIBM Galle Campus" {...field} />
+                        <Input placeholder="Galle" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

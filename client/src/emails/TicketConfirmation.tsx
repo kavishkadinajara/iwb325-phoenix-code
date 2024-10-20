@@ -117,7 +117,7 @@ import {
               <Img
                 style={image}
                 width={620}
-                src={`https://nibmtix.vercel.app/email-footer.png`}
+                src={`https://eventure.vercel.app/email-footer.png`}
               />
             </Section>
   

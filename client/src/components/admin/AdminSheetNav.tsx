@@ -22,7 +22,7 @@ function AdminSheetNav({ active }: { active: string }) {
             prefetch={false}
           >
             <TicketIcon className="h-5 w-5 transition-all group-hover:scale-110" />
-            <span className="sr-only">NIBMTix</span>
+            <span className="sr-only">EVENTURE</span>
           </Link>
           {adminDashboardNavItems.map((item) => (
             <Link

@@ -7,40 +7,59 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 
+import { auth } from "@/auth";
 import AccountOptions from "@/components/AccountOptions";
-import EventSummary from "@/components/EventSummary";
-import Loader from "@/components/Loader";
 import MobileNav from "@/components/MobileNav";
+import NoDataDashboard from "@/components/NoDataDashboard";
 import PaymentsPieChart from "@/components/PaymentsPieChart";
 import RevenueLineChart from "@/components/RevenueLineChart";
 import SalesBarChart from "@/components/SalesBarChart";
 import SheetNav from "@/components/SheetNav";
 import {
-  CalendarIcon,
   DollarSignIcon,
   TicketIcon,
-  UsersIcon,
+  UsersIcon
 } from "@/components/ui/Icons";
 import { CalendarClock, CreditCard } from "lucide-react";
-import { Suspense } from "react";
 
 export default async function DashboardPage() {
-  const dashboardData = {
-    total_ticket_sales: 100,
-    tickets_available: 50,
-    total_revenue: 50000,
-    payment_methods: [
-      { method: 1, count: 30 },
-      { method: 2, count: 20 },
-    ],
-    ticket_price: 1000,
-    total_unpaid_tickets: 10,
-    attended_people: 80,
-    total_paid_tickets: 90,
-    tickets_by_day: [],
-    total_refunded_tickets: 5,
-  };
+  // const dashboardData = {
+  //   total_ticket_sales: 100,
+  //   tickets_available: 50,
+  //   total_revenue: 50000,
+  //   payment_methods: [
+  //     { method: 1, count: 30 },
+  //     { method: 2, count: 20 },
+  //   ],
+  //   ticket_price: 1000,
+  //   total_unpaid_tickets: 10,
+  //   attended_people: 80,
+  //   total_paid_tickets: 90,
+  //   tickets_by_day: [],
+  //   total_refunded_tickets: 5,
+  // };
 
+  const session = await auth();
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/fetchEventDashboard`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.accessToken}`,
+      },
+    }
+  );
+
+  const dashboard = await res.json();
+
+  // console.log(dashboard.value.event_dashboard);
+
+  if (!dashboard?.value?.event_dashboard) {
+    return <NoDataDashboard />;
+  }
+
+  const dashboardData = JSON.parse(dashboard.value.event_dashboard);
 
   return (
     <div className="flex min-h-screen w-full">
@@ -176,9 +195,7 @@ export default async function DashboardPage() {
                 <TicketIcon className="w-4 h-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <SalesBarChart
-                  data={dashboardData.tickets_by_day}
-                />
+                <SalesBarChart data={dashboardData.tickets_by_day} />
                 <div className="mt-3">
                   <p className="text-sm text-muted-foreground">
                     Total Tickets Sold:{" "}
@@ -314,19 +331,7 @@ export default async function DashboardPage() {
             </Card>
           </div>
           <div>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Events Summary
-                </CardTitle>
-                <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <Suspense fallback={<Loader />}>
-                  <EventSummary />
-                </Suspense>
-              </CardContent>
-            </Card>
+            
           </div>
         </main>
       </div>

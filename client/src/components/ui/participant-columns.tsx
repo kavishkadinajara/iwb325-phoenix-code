@@ -11,7 +11,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ColumnDef } from "@tanstack/react-table";
 import {
@@ -19,7 +19,7 @@ import {
   CircleAlert,
   CircleCheckBig,
   ClockIcon,
-  MoreHorizontal
+  MoreHorizontal,
 } from "lucide-react";
 
 // This type is used to define the shape of our data.

@@ -1,13 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use server";
 import TicketConfirmation from "@/emails/TicketConfirmation";
 import { Event } from "@/types";
-import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const supabase = createClient();
 export const toggleAttendance = async (id: string, attendance: number) => {
   attendance = attendance === 1 ? 0 : 1;
 
@@ -16,19 +15,25 @@ export const toggleAttendance = async (id: string, attendance: number) => {
     arrival = new Date().toISOString();
   }
 
-  const { data, error } = await supabase
-    .from("tickets")
-    .update({ attendance: attendance, arrival: arrival })
-    .eq("id", id)
-    .select();
-  if (error) {
-    console.error(error);
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/updateAttendance`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id, attendance, arrival }),
+    }
+  );
+  if (!res.ok) {
     throw new Error("An error occurred while updating attendance");
   }
 
-  console.log(data);
+  // console.log(data);
+  console.log("toggleAttendance", id, attendance, arrival);
 
   revalidatePath("/dashboard/tickets");
+  revalidatePath("/dashboard/participants");
 };
 
 export const toggleRefreshments = async (id: string, refreshments: number) => {
@@ -36,61 +41,83 @@ export const toggleRefreshments = async (id: string, refreshments: number) => {
 
   refreshments = refreshments === 1 ? 0 : 1;
 
-  const { data, error } = await supabase
-    .from("tickets")
-    .update({ refreshments: refreshments })
-    .eq("id", id)
-    .select();
-  if (error) {
-    console.error(error);
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/updateRefreshments`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id, refreshments }),
+    }
+  );
+  if (!res.ok) {
     throw new Error("An error occurred while updating refreshments");
   }
 
+  console.log("toggleRefreshments", id, refreshments);
+
   revalidatePath("/dashboard/tickets");
+  revalidatePath("/dashboard/participants");
 };
 
 export const toggleLunch = async (id: string, lunch: number) => {
   lunch = lunch === 1 ? 0 : 1;
 
-  const { data, error } = await supabase
-    .from("tickets")
-    .update({ lunch: lunch })
-    .eq("id", id)
-    .select();
-  if (error) {
-    console.error(error);
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/updateLunch`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id, lunch }),
+    }
+  );
+  if (!res.ok) {
     throw new Error("An error occurred while updating lunch");
   }
 
+  console.log("toggleLunch", id, lunch);
+
   revalidatePath("/dashboard/tickets");
+  revalidatePath("/dashboard/participants");
 };
 
 export const activateTicket = async (id: string) => {
-  const { data: ticketData, error } = await supabase
-    .from("tickets")
-    .update({ status: 1 })
-    .eq("id", id)
-    .select()
-    .single();
-
-  const { data: eventData, error: fetchError } = await supabase
-    .from("events_anon_view")
-    .select()
-    .eq("id", ticketData.event_id)
-    .single()
-    .returns<Event[]>();
-
-  if (fetchError && fetchError.code == "PGRST116") {
-    throw new Error("Event not found");
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/activateTicket`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error("An error occurred while updating lunch");
   }
 
-  if (fetchError) {
-    console.error(fetchError);
+  const tres = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/ticket_details?ticketId=${id}`
+  );
+
+  const ticket = await tres.json();
+
+  console.log(ticket)
+  console.log(ticket.email)
+
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/event_by_id?id=${ticket.event.id}`
+  );
+  const eventData = await response.json();
+  console.log(eventData)
+  if (!eventData) {
     throw new Error("An error occurred while fetching event data");
   }
-
   const emailDetails = {
-    username: ticketData.name,
+    username: ticket.name,
     event: eventData.name,
     eventImage: eventData.image,
     date: new Date(eventData.date).toLocaleDateString("en-US", {
@@ -109,8 +136,13 @@ export const activateTicket = async (id: string) => {
   };
 
   const { data, error: emailError } = await resend.emails.send({
+<<<<<<< HEAD
     from: "NIBMTix <eventure@notifibm.com>",
     to: [ticketData.email],
+=======
+    from: "Eventure <eventure@notifibm.com>",
+    to: [ticket.email],
+>>>>>>> e93dd77b6c2e96d8fd7fccd81077f6f24310733b
     subject: `Your Ticket for ${eventData.name}`,
     react: TicketConfirmation(emailDetails),
   });
@@ -120,24 +152,28 @@ export const activateTicket = async (id: string) => {
     throw new Error("An error occurred while sending email");
   }
 
-  if (error) {
-    console.error(error);
-    throw new Error("An error occurred while activating ticket");
-  }
+  console.log("activateTicket", id);
 
   revalidatePath("/dashboard/tickets");
 };
 
 export const refundTicket = async (id: string) => {
-  const { data, error } = await supabase
-    .from("tickets")
-    .update({ status: 2 })
-    .eq("id", id)
-    .select();
-  if (error) {
-    console.error(error);
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/refundTicket`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id }),
+    }
+  );
+  if (!res.ok) {
     throw new Error("An error occurred while refunding ticket");
   }
 
+  console.log("refundTicket", id);
+
   revalidatePath("/dashboard/tickets");
+  revalidatePath("/dashboard/participants");
 };
