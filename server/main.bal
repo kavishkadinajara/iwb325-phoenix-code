@@ -1014,7 +1014,7 @@ service /events on httpListener {
           WHERE t.id = CAST(${ticketId} AS UUID)
           `;
 
-       // Execute the query
+        // Execute the query
         stream<TicketDetails, sql:Error?> result = self.databaseClient->query(query, TicketDetails);
         TicketDetails? ticketDetails = ();
         while true {
@@ -1047,6 +1047,197 @@ service /events on httpListener {
             return response; // Return the JSON response
         } else {
             return error("Ticket not found"); // Return error if no ticket found
+        }
+    }
+
+    resource function get deafult_event_tickets(http:Caller caller, http:Request req) returns error? {
+
+        string createdBy = "";
+
+        string? authHeader = check req.getHeader("Authorization");
+
+        //use guard close
+        if (authHeader == null) {
+            checkpanic caller->respond({"error": "Authorization header is missing."});
+            return;
+        }
+
+        jwt:Payload|http:Unauthorized payload = authenticateJWT(authHeader);
+
+        if payload is http:Unauthorized {
+            checkpanic caller->respond({"error": "Unauthorized"});
+            return;
+        }
+
+        if payload is jwt:Payload {
+            //log:printInfo("JWT validation successful.");
+            string? sub = <string?>payload["sub"];
+            if sub == null {
+                check caller->respond("User not found in JWT payload.");
+                return;
+            }
+            createdBy = sub;
+
+        }
+
+        sql:ParameterizedQuery query = `SELECT id, name, email, mobile, attendance, lunch, refreshments,
+        COALESCE(arrival::text, '') AS arrival, payment_method, status, event_name 
+        FROM view_tickets_for_default_event
+        WHERE created_by = CAST(${createdBy} AS UUID)`;
+
+        // Execute the query
+        stream<Ticket, sql:Error?> resultStream = self.databaseClient->query(query, Ticket);
+
+        // Create a JSON array to hold the ticket data
+        json[] tickets = [];
+
+        // Loop through the result set and add each ticket to the array
+        check from Ticket row in resultStream
+            do {
+                tickets.push({
+                    id: row.id,
+                    name: row.name,
+                    email: row.email,
+                    mobile: row.mobile,
+                    refreshments: row.refreshments,
+                    lunch: row.lunch,
+                    attendance: row.attendance,
+                    arrival: row.arrival,
+                    payment_method: row.payment_method,
+                    status: row.status,
+                    event_name: row.event_name
+                });
+            };
+
+        // Respond with the ticket data
+        checkpanic caller->respond(tickets);
+    }
+
+    resource function post updateAttendance(http:Caller caller, http:Request req) returns error? {
+        // Parse the request payload
+        json payload = check req.getJsonPayload();
+
+        // Extract fields from the payload
+        string id = (check payload.id).toString();
+        int attendance = check int:fromString((check payload.attendance).toString());
+        string arrival = (check payload.arrival).toString();
+
+        // Execute the query with parameters
+        sql:ParameterizedQuery updateQuery = `UPDATE public.tickets
+                              SET attendance = ${attendance}, arrival = ${arrival}::timestamptz
+                              WHERE id = CAST(${id} AS UUID) 
+                              RETURNING *`;
+        var result = self.databaseClient->execute(updateQuery);
+
+        // Check if the query execution was successful
+        if result is sql:ExecutionResult {
+            // Fetch the updated row
+
+            //send a success message
+            json response = {
+                message: "Attendance updated successfully"
+            };
+            checkpanic caller->respond(response);
+        } else if result is error {
+            // Log and return the error if something went wrong
+            log:printError("Error occurred while updating attendance", result);
+            return error("An error occurred while updating attendance");
+        }
+
+    }
+
+    resource function post refundTicket(http:Caller caller, http:Request req) returns error? {
+        // Parse the request payload
+        json payload = check req.getJsonPayload();
+
+        // Extract fields from the payload
+        string id = (check payload.id).toString();
+
+        // Execute the query with parameters
+        sql:ParameterizedQuery updateQuery = `UPDATE public.tickets
+                                              SET status = 2
+                                              WHERE id = CAST(${id} AS UUID) 
+                                              RETURNING *`;
+        var result = self.databaseClient->execute(updateQuery);
+
+        // Check if the query execution was successful
+        if result is sql:ExecutionResult {
+            // Fetch the updated row
+
+            //send a success message
+            json response = {
+                message: "Refunded successfully"
+            };
+            checkpanic caller->respond(response);
+        } else if result is error {
+            // Log and return the error if something went wrong
+            log:printError("Error occurred while updating attendance", result);
+            return error("An error occurred while updating attendance");
+        }
+
+    }
+
+    resource function post updateRefreshments(http:Caller caller, http:Request req) returns error? {
+        // Parse the request payload
+        json payload = check req.getJsonPayload();
+
+        // Extract fields from the payload
+        string id = (check payload.id).toString();
+        int refreshments = check int:fromString((check payload.refreshments).toString());
+
+        // Execute the query with parameters
+        sql:ParameterizedQuery updateQuery = `UPDATE public.tickets
+                              SET refreshments = ${refreshments}
+                              WHERE id = CAST(${id} AS UUID) 
+                              RETURNING *`;
+        var result = self.databaseClient->execute(updateQuery);
+
+        // Check if the query execution was successful
+        if result is sql:ExecutionResult {
+            log:printInfo("Refreshment updated successfully");
+            // Fetch the updated row
+
+            //send a success message
+            json response = {
+                message: "Refreshment updated successfully"
+            };
+            checkpanic caller->respond(response);
+        } else if result is error {
+            // Log and return the error if something went wrong
+            log:printError("Error occurred while updating attendance", result);
+            return error("An error occurred while updating attendance");
+        }
+
+    }
+
+    resource function post updateLunch(http:Caller caller, http:Request req) returns error? {
+        // Parse the request payload
+        json payload = check req.getJsonPayload();
+
+        // Extract fields from the payload
+        string id = (check payload.id).toString();
+        int lunch = check int:fromString((check payload.lunch).toString());
+
+        // Execute the query with parameters
+        sql:ParameterizedQuery updateQuery = `UPDATE public.tickets
+                              SET lunch = ${lunch}
+                              WHERE id = CAST(${id} AS UUID) 
+                              RETURNING *`;
+        var result = self.databaseClient->execute(updateQuery);
+
+        // Check if the query execution was successful
+        if result is sql:ExecutionResult {
+            // Fetch the updated row
+
+            //send a success message
+            json response = {
+                message: "Lunch updated successfully"
+            };
+            checkpanic caller->respond(response);
+        } else if result is error {
+            // Log and return the error if something went wrong
+            log:printError("Error occurred while updating attendance", result);
+            return error("An error occurred while updating attendance");
         }
     }
 

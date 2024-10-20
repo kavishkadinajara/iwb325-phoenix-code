@@ -10,10 +10,23 @@ import {
   
 import { TicketTable } from "@/components/ui/ticket-table";
 import { TicketColumns } from "@/components/ui/ticket-columns"
+import { auth } from "@/auth";
   
   export default async function TicketsPage() {
 
-    const data: string | any[] = []; // Initialize data with an empty array or fetch data from an API
+    const session = await auth();
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_BAL_URL}/events/deafult_event_tickets`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.accessToken}`,
+      },
+    }
+  );
+
+  const data = await response.json();
 
     return (
       <div>

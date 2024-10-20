@@ -1,153 +1,159 @@
 "use client";
 
-import * as React from "react";
-import { CheckIcon, PlusCircledIcon } from "@radix-ui/react-icons";
-import { Column } from "@tanstack/react-table";
-
-import { cn } from "@/lib/utils";
+import { activateTicket, refundTicket } from "@/actions/tickets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Separator } from "@/components/ui/separator";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Ticket } from "@/types";
+import { ColumnDef } from "@tanstack/react-table";
+import { CheckCheckIcon, CircleAlert, MoreHorizontal } from "lucide-react";
 
-interface DataTableFacetedFilterProps<TData, TValue> {
-  column?: Column<TData, TValue>;
-  title?: string;
-  options: {
-    label: string;
-    value: number;
-    icon?: React.ComponentType<{ className?: string }>;
-  }[];
-}
+/*
+export type Ticket = {
+  id: string;
+  name: string;
+  email: string;
+  attendance: number; // 0 = not-attended, 1 = attended
+  arrival: string;
+  paymentMethod: 1 | 2; // 1 = Cash, 2 = Card
+  status: 0 | 1 | 2 | 3; // 0 = not-paid, 1 = paid, 2 = refunded
+};
+*/
 
-export function DataTableFacetedFilter<TData, TValue>({
-  column,
-  title,
-  options,
-}: DataTableFacetedFilterProps<TData, TValue>) {
-  const facets = column?.getFacetedUniqueValues();
-  const selectedValues = new Set<number>(
-    (column?.getFilterValue() as TValue[] | undefined)?.map((value) =>
-      parseInt(value as unknown as string)
-    )
-  );
+export const TicketColumns: ColumnDef<Ticket>[] = [
+  {
+    id: "id",
+    accessorKey: "id",
+    header: "Ticket ID",
+  },
+  {
+    accessorKey: "name",
+    header: "Name",
+  },
+  {
+    accessorKey: "email",
+    header: "Email",
+  },
+  {
+    accessorKey: "payment_method",
+    header: "Payment Method",
+    cell: ({ row }) => {
+      return row.original.payment_method === 1 ? (
+        <Badge variant="outline">Cash</Badge>
+      ) : row.original.payment_method === 2 ? (
+        <Badge variant="outline">Card</Badge>
+      ) : (
+        <Badge variant="outline">Free</Badge>
+      );
+    },
+    filterFn: (rows, id, filterValue) => {
+      return filterValue.includes(rows.getValue(id));
+    },
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const ticket = row.original;
 
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 border-dashed">
-          <PlusCircledIcon className="mr-2 h-4 w-4" />
-          {title}
-          {selectedValues?.size > 0 && (
-            <>
-              <Separator orientation="vertical" className="mx-2 h-4" />
-              <Badge
-                variant="secondary"
-                className="rounded-sm px-1 font-normal lg:hidden"
+      //return ticket.status.toString();
+
+      if (ticket.status === 0) {
+        return (
+          <Badge variant="outline" className="text-red-500">
+            Not Paid
+          </Badge>
+        );
+      }
+
+      if (ticket.status === 1) {
+        return (
+          <Badge variant="outline" className="text-green-500">
+            Paid
+          </Badge>
+        );
+      }
+
+      if (ticket.status === 2) {
+        return (
+          <Badge variant="outline" className="">
+            Refunded
+          </Badge>
+        );
+      }
+
+      return (
+        <Badge variant="outline" className="text-blue-400">
+          Unknown
+        </Badge>
+      );
+    },
+    filterFn: (rows, id, filterValue) => {
+      return filterValue.includes(rows.getValue(id));
+    },
+  },
+  {
+    accessorKey: "attendance",
+    header: "Attendance",
+    cell: ({ row }) => {
+      return row.original.attendance === 1 ? (
+        <span className="text-green-600 flex gap-1">
+          arrived
+          <CheckCheckIcon className="h-4 w-4 my-auto" />
+        </span>
+      ) : (
+        <span className="text-yellow-600 flex gap-1">
+          pending
+          <CircleAlert className="h-4 w-4 my-auto" />
+        </span>
+      );
+    },
+    filterFn: (rows, id, filterValue) => {
+      return filterValue.includes(rows.getValue(id));
+    },
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const ticket = row.original;
+
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Open menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => navigator.clipboard.writeText(ticket.id)}
+            >
+              Copy Ticket ID
+            </DropdownMenuItem>
+            {ticket.status != 1 && (
+              <DropdownMenuItem
+                onClick={async () => await activateTicket(ticket.id)}
               >
-                {selectedValues.size}
-              </Badge>
-              <div className="hidden space-x-1 lg:flex">
-                {selectedValues.size > 2 ? (
-                  <Badge
-                    variant="secondary"
-                    className="rounded-sm px-1 font-normal"
-                  >
-                    {selectedValues.size} selected
-                  </Badge>
-                ) : (
-                  options
-                    .filter((option) => selectedValues.has(option.value))
-                    .map((option) => (
-                      <Badge
-                        variant="secondary"
-                        key={option.value}
-                        className="rounded-sm px-1 font-normal"
-                      >
-                        {option.label}
-                      </Badge>
-                    ))
-                )}
-              </div>
-            </>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder={title} />
-          <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => {
-                const isSelected = selectedValues.has(option.value);
-                return (
-                  <CommandItem
-                    key={option.value}
-                    onSelect={() => {
-                      if (isSelected) {
-                        selectedValues.delete(option.value);
-                      } else {
-                        selectedValues.add(option.value);
-                      }
-                      const filterValues = Array.from(selectedValues);
-                      column?.setFilterValue(
-                        filterValues.length ? filterValues : undefined
-                      );
-                    }}
-                  >
-                    <div
-                      className={cn(
-                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : "opacity-50 [&_svg]:invisible"
-                      )}
-                    >
-                      <CheckIcon className={cn("h-4 w-4")} />
-                    </div>
-                    {option.icon && (
-                      <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                    )}
-                    <span>{option.label}</span>
-                    {facets?.get(option.value) && (
-                      <span className="ml-auto flex h-4 w-4 items-center justify-center font-mono text-xs">
-                        {facets.get(option.value)}
-                      </span>
-                    )}
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-            {selectedValues.size > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem
-                    onSelect={() => column?.setFilterValue(undefined)}
-                    className="justify-center text-center"
-                  >
-                    Clear filters
-                  </CommandItem>
-                </CommandGroup>
-              </>
+                Activate Ticket
+              </DropdownMenuItem>
             )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
+
+            {ticket.status == 1 && (
+              <DropdownMenuItem
+                onClick={async () => await refundTicket(ticket.id)}
+              >
+                Refund Ticket
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    },
+  },
+];
