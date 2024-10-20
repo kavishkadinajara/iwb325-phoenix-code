@@ -1,8 +1,5 @@
-<<<<<<< Updated upstream
 /* eslint-disable @typescript-eslint/no-explicit-any */
-=======
 /* eslint-disable @typescript-eslint/no-unused-vars */
->>>>>>> Stashed changes
 "use client";
 
 import { Badge } from "@/components/ui/badge";
@@ -30,19 +27,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import clearCachesByServerAction from "@/lib/revalidate";
 import { Event } from "@/types";
-<<<<<<< Updated upstream
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-=======
-// import { createClient } from "@/utils/supabase/client";
-import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ChangeEvent, useCallback, useEffect, useState } from "react";
->>>>>>> Stashed changes
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -74,10 +63,7 @@ export default function EditEventPage({
 }) {
   const { toast } = useToast();
   const router = useRouter();
-<<<<<<< Updated upstream
   const { data: session } = useSession();
-=======
->>>>>>> Stashed changes
 
   const [eventData, setEventData] = useState<Event | null>(null);
 
@@ -97,7 +83,6 @@ export default function EditEventPage({
     },
   });
 
-<<<<<<< Updated upstream
   useEffect(() => {
     const fetchData = async () => {
       const response = await fetch(
@@ -138,51 +123,6 @@ export default function EditEventPage({
 
   const [slug, setSlug] = useState("");
   const [isSlugAvailable, setIsSlugAvailable] = useState(true);
-=======
-//   useEffect(() => {
-//     const fetchData = async () => {
-//       const supabase = createClient();
-//       const { data: eventData, error } = await supabase
-//         .from("events_view")
-//         .select()
-//         .eq("slug", params.slug)
-//         .single()
-//         .returns<Event[]>();
-
-//       if (error && error.code === "PGRST116") {
-//         router.push("/dashboard/events");
-//       }
-
-//       if (error) {
-//         console.error(error.message);
-//         return <div>ERROR</div>;
-//       }
-
-//       console.log(eventData);
-//       setEventData(eventData);
-
-//       form.reset({
-//         name: eventData?.name || "", // Field for event name
-//         date: eventData?.date || "", // Field for event date
-//         time: eventData?.time || "", // Field for event time
-//         location: eventData?.location || "", // Field for event location
-//         availableTickets: eventData?.available_tickets || 0, // Field for available tickets
-//         slug: eventData?.slug || "", // Field for event slug
-//         mealProvided: eventData?.meal_provided || false, // Field for meal provided (boolean)
-//         ticketPrice: eventData?.ticket_price || 0, // Field for ticket price
-//         description: eventData?.description || "", // Field for event description
-//         image: undefined, // Field for event image (can be URL or file)
-//       });
-
-//       setSlug(eventData?.slug || "");
-//     };
-
-//     fetchData();
-//   }, [form, params.slug]);
-
-  const [slug, setSlug] = useState("");
-  const [isSlugAvailable, setIsSlugAvailable] = useState(false);
->>>>>>> Stashed changes
   const [isSlugChecking, setIsSlugChecking] = useState(false);
   const [eventImage, setEventImage] = useState<File | null>(null);
   const [fileInputValue, setFileInputValue] = useState<string>("");
@@ -191,7 +131,6 @@ export default function EditEventPage({
 
   const debouncedSlug = useDebounce({ value: slug, delay: 2000 });
 
-<<<<<<< Updated upstream
   const checkSlugAvailability = useCallback(async (slug: string) => {
     setIsSlugChecking(true);
     if (slug) {
@@ -356,164 +295,6 @@ export default function EditEventPage({
     clearCachesByServerAction(`/dashboard/events/${values.slug}`);
     router.push("/dashboard/events");
   }
-=======
-//   const checkSlugAvailability = useCallback(
-//     async (slug: string) => {
-//       setIsSlugChecking(true);
-//       if (slug) {
-//         // const isAvailable: boolean = !slug.includes("taken");
-//         // setIsSlugAvailable(isAvailable);
-
-//         if (slug === eventData?.slug) {
-//           setIsSlugAvailable(true);
-//           setIsSlugChecking(false);
-//           return;
-//         }
-
-//         try {
-//           const supabase = createClient();
-//           // Query Supabase to check if the slug already exists
-//           const { data, error } = await supabase
-//             .from("events")
-//             .select("slug")
-//             .eq("slug", slug)
-//             .single();
-
-//           if (error && error.code !== "PGRST116") {
-//             // Ignore the "no rows" error
-//             console.error("Error checking slug availability:", error.message);
-//             setIsSlugAvailable(false);
-//           } else {
-//             const isAvailable = data === null; // If no data is returned, slug is available
-//             setIsSlugAvailable(isAvailable);
-//           }
-//         } catch (err) {
-//           console.error("Unexpected error:", err);
-//           setIsSlugAvailable(false);
-//         }
-//       }
-//       setIsSlugChecking(false);
-//     },
-//     [eventData?.slug]
-//   );
-
-//   useEffect(() => {
-//     checkSlugAvailability(debouncedSlug);
-//   }, [debouncedSlug, checkSlugAvailability]);
-
-//   function generateSlug(name: string) {
-//     //add the current year too with a hypen
-//     const slug =
-//       name
-//         .toLowerCase()
-//         .replace(/\s+/g, "-")
-//         .replace(/[^a-z0-9-]/g, "") +
-//       "-" +
-//       new Date().getFullYear();
-//     setSlug(slug);
-//     form.setValue("slug", slug);
-//   }
-
-//   const handleSlugChange = (e: any) => {
-//     const newSlug = e.target.value
-//       .toLowerCase()
-//       .replace(/\s+/g, "-")
-//       .replace(/[^a-z0-9-]/g, "");
-//     setSlug(newSlug);
-//     setIsSlugChecking(true);
-//   };
-
-async function onsubmit() {
-
-
-}
-
-//   async function onSubmit(values: z.infer<typeof EventDetailsSchema>) {
-//     // ✅ This will be type-safe and validated.
-//     console.log(values);
-//     setIsUploading(true);
-
-//     const supabase = createClient();
-
-//     const session = await supabase.auth.getSession();
-
-//     const userId = session.data.session?.user.id;
-
-//     let imageURL = eventData?.image;
-
-//     if (values.image) {
-//       // Extract the file extension from the file name
-//       const fileExtension = values.image.name.split(".").pop();
-
-//       // Construct the upload path with the file extension
-//       const uploadPath = `${userId}/${values.slug}.${fileExtension}`;
-
-//       const { data: imageData, error: imageError } = await supabase.storage
-//         .from("events")
-//         .upload(uploadPath, values.image, {
-//           upsert: true,
-//         });
-
-//       if (imageError) {
-//         // Show error toast
-//         toast({
-//           title: "Error",
-//           description: "Failed to upload image",
-//           type: "foreground",
-//         });
-//         setIsUploading(false);
-
-//         return;
-//       }
-
-//       imageURL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${imageData.fullPath}`;
-//     }
-
-//     //Adding the Event
-
-//     const newEvent = {
-//       name: values.name,
-//       date: values.date,
-//       time: values.time,
-//       location: values.location,
-//       available_tickets: values.availableTickets,
-//       ticket_price: values.ticketPrice,
-//       slug: values.slug,
-//       image: imageURL,
-//       meal_provides: values.mealProvided,
-//       description: values.description,
-//       default: false,
-//     };
-
-//     const { data: createdEvent, error: insertError } = await supabase
-//       .from("events")
-//       .update([newEvent])
-//       .eq("slug", params.slug)
-//       .select();
-
-//     if (insertError) {
-//       console.error("Error adding event:", insertError.message);
-//       // Show error toast
-//       toast({
-//         title: "Error",
-//         description: "Failed to create event",
-//         type: "foreground",
-//       });
-//     }
-
-//     setIsUploading(false);
-
-//     // Show success toast
-//     toast({
-//       title: "Event Updated",
-//       description: "Event has been updated successfully",
-//       type: "foreground",
-//     });
-
-//     clearCachesByServerAction(`/dashboard/events/${values.slug}`);
-//     router.push("/dashboard/events");
-//   }
->>>>>>> Stashed changes
 
   const getTodayDate = () => {
     const today = new Date();
@@ -523,17 +304,6 @@ async function onsubmit() {
     return `${year}-${month}-${day}`;
   };
 
-<<<<<<< Updated upstream
-=======
-    function generateSlug(value: string) {
-        throw new Error("Function not implemented.");
-    }
-
-    function handleSlugChange(e: ChangeEvent<HTMLInputElement>) {
-        throw new Error("Function not implemented.");
-    }
-
->>>>>>> Stashed changes
   return (
     <div>
       <Breadcrumb className="hidden md:flex ml-6 -mt-12 z-40 absolute mb-4">
@@ -577,11 +347,7 @@ async function onsubmit() {
 
         <Form {...form}>
           <form
-<<<<<<< Updated upstream
             onSubmit={form.handleSubmit(onSubmit)}
-=======
-            onSubmit={form.handleSubmit(onsubmit)}
->>>>>>> Stashed changes
             className="grid grid-cols-2 gap-6"
           >
             <div className="space-y-4">
